@@ -14,6 +14,7 @@ Error :: enum{
 	NO_VULKAN_SUPPORTED_GPU,
 	VULKAN_NO_SUITABLE_GPU,
 	VULKAN_CREATE_DEVICE_FAILED,
+	SDL_VULKAN_CREATE_SURFACE_FAILED,
 }
 error_buf: [dynamic]Error
 
@@ -25,12 +26,17 @@ VK_Queue_Index :: union {u32}
 
 VK_Queue_Families :: struct {
 	graphics: VK_Queue_Index,
+	present: VK_Queue_Index,
 }
 
 VK_Context :: struct {
+	window: ^sdl.Window,
 	instance: vk.Instance,
 	physical_device: vk.PhysicalDevice,
 	device: vk.Device,
+	surface: vk.SurfaceKHR,
+	graphics_queue: vk.Queue,
+	present_queue: vk.Queue,
 }
 
 validation_layers: []cstring : {
@@ -65,8 +71,14 @@ load :: proc() -> (ok: bool = true) {
 
 init :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 	log.debug("Initializing Vulkan...")
+	ctx.window = window
 
-	if !create_instance(window) {
+	if !create_instance() {
+		return false
+	}
+
+	if !sdl.Vulkan_CreateSurface(window, ctx.instance, &ctx.surface) {
+		append(&error_buf, Error.SDL_VULKAN_CREATE_SURFACE_FAILED)
 		return false
 	}
 
@@ -89,9 +101,10 @@ init :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 destroy :: proc() {
 	log.debug("Destroying Vulkan renderer...")
 
+	vk.DestroySurfaceKHR(ctx.instance, ctx.surface, nil)
 	vk.DestroyDevice(ctx.device, nil)
 	vk.DestroyInstance(ctx.instance, nil)
-	delete(error_buf)
+	clear(&error_buf)
 
 	log.debug("Vulkan renderer successfully destroyed.")
 }
@@ -101,7 +114,7 @@ destroy :: proc() {
 //****************************************************************************//
 
 @(private)
-create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
+create_instance :: proc() -> (ok: bool = true) {
 	log.debug("Creating Vulkan instance...")
 
 	app_info: vk.ApplicationInfo
@@ -113,9 +126,9 @@ create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 
 	// Check required extensions and add them
 	extension_count: u32
-	sdl.Vulkan_GetInstanceExtensions(window, &extension_count, nil)
+	sdl.Vulkan_GetInstanceExtensions(ctx.window, &extension_count, nil)
 	instance_extensions := make([]cstring, int(extension_count)); defer delete(instance_extensions)
-	sdl.Vulkan_GetInstanceExtensions(window, &extension_count, raw_data(instance_extensions))
+	sdl.Vulkan_GetInstanceExtensions(ctx.window, &extension_count, raw_data(instance_extensions))
 
 	supported_extension_count: u32
 	vk.EnumerateInstanceExtensionProperties(nil, &supported_extension_count, nil)
@@ -211,7 +224,7 @@ select_physical_device :: proc() -> (ok: bool = true) {
 			
 			// Validate that the device is usable
 			device_queue_families := find_queue_families(device)
-			if device_queue_families.graphics != nil {
+			if device_queue_families.graphics != nil && device_queue_families.present != nil {
 				log.debugf("Found %s", device_properties.deviceName)
 				ctx.physical_device = device
 				if device_properties.deviceType == .DISCRETE_GPU {
@@ -241,6 +254,11 @@ find_queue_families :: proc(device: vk.PhysicalDevice) -> (queue_families: VK_Qu
 		if .GRAPHICS in queue_family.queueFlags && queue_families.graphics == nil {
 			queue_families.graphics = u32(index)
 		}
+		present_support: b32 = false
+		vk.GetPhysicalDeviceSurfaceSupportKHR(device, u32(index), ctx.surface, &present_support)
+		if present_support {
+			queue_families.present = u32(index)
+		}
 	}
 
 	return
@@ -255,21 +273,25 @@ create_logical_device :: proc() -> (ok: bool = true) {
 	log.debug("Creating logical Vulkan device...")
 	queue_families := find_queue_families(ctx.physical_device)
 	
-	queue_priorities := make([]f32, 1); defer delete(queue_priorities)
-	queue_priorities[0] = 1.0
-
-	queue_create_info: vk.DeviceQueueCreateInfo
-	queue_create_info.sType = vk.StructureType.DEVICE_QUEUE_CREATE_INFO
-	queue_create_info.queueFamilyIndex = queue_families.graphics.(u32)
-	queue_create_info.queueCount = 1
-	queue_create_info.pQueuePriorities = raw_data(queue_priorities)
+	queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, 2); defer delete(queue_create_infos)
+	queue_priorities := make([]f32, 2); defer delete(queue_priorities)
+	queue_indices: []u32 = {queue_families.graphics.(u32), queue_families.present.(u32)}
+	
+	for queue_family_index, index in queue_indices {
+		queue_create_info: vk.DeviceQueueCreateInfo
+		queue_create_info.sType = vk.StructureType.DEVICE_QUEUE_CREATE_INFO
+		queue_create_info.queueFamilyIndex = queue_family_index
+		queue_create_info.queueCount = 1
+		queue_create_info.pQueuePriorities = raw_data(queue_priorities)
+		queue_create_infos[index] = queue_create_info
+	}
 	
 	device_features: vk.PhysicalDeviceFeatures
 
 	create_info: vk.DeviceCreateInfo
 	create_info.sType = vk.StructureType.DEVICE_CREATE_INFO
-	create_info.pQueueCreateInfos = &queue_create_info
-	create_info.queueCreateInfoCount = 1
+	create_info.queueCreateInfoCount = u32(len(queue_create_infos))
+	create_info.pQueueCreateInfos = raw_data(queue_create_infos)
 	create_info.pEnabledFeatures = &device_features
 	create_info.enabledExtensionCount = 0
 	
@@ -284,6 +306,10 @@ create_logical_device :: proc() -> (ok: bool = true) {
 		append(&error_buf, Error.VULKAN_CREATE_DEVICE_FAILED)
 		return false
 	}
+	
+	log.debug("Retrieving queue handles")
+	vk.GetDeviceQueue(ctx.device, queue_families.graphics.(u32), 0, &ctx.graphics_queue)
+	vk.GetDeviceQueue(ctx.device, queue_families.present.(u32), 0, &ctx.present_queue)
 	
 	log.debug("Logical Vulkan device good to go.")
 	return
