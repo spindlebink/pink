@@ -11,6 +11,7 @@ Error :: enum{
 	VULKAN_CREATE_INSTANCE_FAILED,
 	VULKAN_REQUIRED_EXTENSION_UNSUPPORTED,
 	VULKAN_VALIDATION_LAYER_UNSUPPORTED,
+	VULKAN_NO_SUPPORTED_GPU,
 }
 error_buf: [dynamic]Error
 
@@ -18,8 +19,16 @@ error_buf: [dynamic]Error
 // Context Structure
 //****************************************************************************//
 
+VK_Queue_Index :: union {u32}
+
+VK_Queue_Families :: struct {
+	graphics: VK_Queue_Index,
+}
+
 VK_Context :: struct {
 	instance: vk.Instance,
+	physical_device: vk.PhysicalDevice,
+	device: vk.Device,
 }
 
 validation_layers: []cstring : {
@@ -53,15 +62,22 @@ load :: proc() -> (ok: bool = true) {
 //****************************************************************************//
 
 init :: proc(window: ^sdl.Window) -> (ok: bool = true) {
-	using ctx
 	log.debug("Initializing Vulkan...")
 
 	if !create_instance(window) {
 		return false
 	}
 
+	if !select_physical_device() {
+		return false
+	}
+	
+	if !create_logical_device() {
+		return false
+	}
+
 	log.debug("Vulkan successfully initialized.")
-	return true
+	return
 }
 
 //****************************************************************************//
@@ -69,10 +85,9 @@ init :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 //****************************************************************************//
 
 destroy :: proc() {
-	using ctx
 	log.debug("Destroying Vulkan renderer...")
 
-	vk.DestroyInstance(instance, nil)
+	vk.DestroyInstance(ctx.instance, nil)
 
 	log.debug("Vulkan renderer successfully destroyed.")
 }
@@ -83,7 +98,6 @@ destroy :: proc() {
 
 @(private)
 create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
-	using ctx
 	log.debug("Creating Vulkan instance...")
 
 	app_info: vk.ApplicationInfo
@@ -96,14 +110,12 @@ create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 	// Check required extensions and add them
 	extension_count: u32
 	sdl.Vulkan_GetInstanceExtensions(window, &extension_count, nil)
-	instance_extensions: [dynamic]cstring; defer delete(instance_extensions)
-	resize(&instance_extensions, int(extension_count))
+	instance_extensions := make([]cstring, int(extension_count)); defer delete(instance_extensions)
 	sdl.Vulkan_GetInstanceExtensions(window, &extension_count, raw_data(instance_extensions))
 
 	supported_extension_count: u32
 	vk.EnumerateInstanceExtensionProperties(nil, &supported_extension_count, nil)
-	supported_extensions: [dynamic]vk.ExtensionProperties; defer delete(supported_extensions)
-	resize(&supported_extensions, int(supported_extension_count))
+	supported_extensions := make([]vk.ExtensionProperties, int(supported_extension_count)); defer delete(supported_extensions)
 	vk.EnumerateInstanceExtensionProperties(nil, &supported_extension_count, raw_data(supported_extensions))
 	
 	all_supported := true
@@ -133,8 +145,7 @@ create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 		log.debug("Checking validation layer support...")
 		layer_count: u32
 		vk.EnumerateInstanceLayerProperties(&layer_count, nil)
-		supported_layers: [dynamic]vk.LayerProperties; defer delete(supported_layers)
-		resize(&supported_layers, int(layer_count))
+		supported_layers := make([]vk.LayerProperties, int(layer_count)); defer delete(supported_layers)
 		vk.EnumerateInstanceLayerProperties(&layer_count, raw_data(supported_layers))
 
 		all_layers_supported := true
@@ -159,16 +170,78 @@ create_instance :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 		create_info.ppEnabledLayerNames = raw_data(validation_layers)
 	}
 	
-	result := vk.CreateInstance(&create_info, nil, &instance)
+	result := vk.CreateInstance(&create_info, nil, &ctx.instance)
 	log.debug("Instance creation result", result)
 	if result != .SUCCESS {
 		append(&error_buf, Error.VULKAN_CREATE_INSTANCE_FAILED)
 		return false
 	}
 	
-	vk.load_proc_addresses(instance)
-	
-	
+	vk.load_proc_addresses(ctx.instance)
 	log.debug("Vulkan instance successfully created.")
-	return true
+	return
+}
+
+//****************************************************************************//
+// Select Physical Device
+//****************************************************************************//
+
+@(private)
+select_physical_device :: proc() -> (ok: bool = true) {
+	log.debug("Selecting physical Vulkan device...")
+	{
+		device_count: u32
+		vk.EnumeratePhysicalDevices(ctx.instance, &device_count, nil)
+		if device_count == 0 {
+			append(&error_buf, Error.VULKAN_NO_SUPPORTED_GPU)
+			return false
+		}
+		devices := make([]vk.PhysicalDevice, int(device_count)); defer delete(devices)
+		vk.EnumeratePhysicalDevices(ctx.instance, &device_count, raw_data(devices))
+	
+		for device in &devices {
+			device_properties: vk.PhysicalDeviceProperties
+			device_features: vk.PhysicalDeviceFeatures
+			vk.GetPhysicalDeviceProperties(device, &device_properties)
+			vk.GetPhysicalDeviceFeatures(device, &device_features)
+			
+			// Validate that the device is usable
+			device_queue_families := find_queue_families(device)
+			if device_queue_families.graphics != nil {
+				log.debugf("Found %s", device_properties.deviceName)
+				ctx.physical_device = device
+				if device_properties.deviceType == .DISCRETE_GPU {
+					log.debug("Discrete GPU, using it")
+					break
+				}
+			}
+		}
+	}
+	log.debug("Physical Vulkan device good to go.")
+	return
+}
+
+@(private)
+find_queue_families :: proc(device: vk.PhysicalDevice) -> (queue_families: VK_Queue_Families) {
+	queue_family_count: u32
+	vk.GetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nil)
+	device_queue_families := make([]vk.QueueFamilyProperties, int(queue_family_count)); defer delete(device_queue_families)
+	vk.GetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, raw_data(device_queue_families))
+	
+	for queue_family, index in &device_queue_families {
+		if .GRAPHICS in queue_family.queueFlags && queue_families.graphics == nil {
+			queue_families.graphics = u32(index)
+		}
+	}
+
+	return
+}
+
+//****************************************************************************//
+// Create Logical Device
+//****************************************************************************//
+
+@(private)
+create_logical_device :: proc() -> (ok: bool = true) {
+	return
 }
