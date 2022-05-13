@@ -3,6 +3,7 @@ package pink
 import "core:fmt"
 import "core:time"
 import "core:strings"
+import "core:log"
 import sdl "vendor:sdl2"
 
 @(private)
@@ -23,41 +24,61 @@ Context :: struct {
 	on_exit: [dynamic]proc(),
 }
 
+when ODIN_DEBUG {
+	@(private)
+	debug_log: log.Logger
+}
+
 @(private)
 ctx: Context
 
 //****************************************************************************//
-// Setup + Run + Exit
+// Init
 //****************************************************************************//
 
-// Initializes the game context.
 init :: proc(width: i32 = 1024, height: i32 = 768) {
-	fmt.assertf(!ctx.initialized, "runtime context already initialized")
+	when ODIN_DEBUG {
+		logger_options := log.Options{.Level, .Line, .Time, .Short_File_Path}
+		lowest :: log.Level.Debug
+		debug_log = log.create_console_logger(opt = logger_options, lowest = lowest)
+		context.logger = debug_log
+	}
+	
+	fmt.assertf(!ctx.initialized, "Runtime context already initialized")
 	
 	if ctx.window_title == "" {
 		ctx.window_title = "Window"
 	}
 
 	init_flags: bit_set[sdl.InitFlag; u32] : sdl.InitFlags{.VIDEO}
-	if sdl.Init(init_flags) >= 0 {
-		ctx.window_width = width
-		ctx.window_height = height
-		ctx.window = sdl.CreateWindow(
-			strings.clone_to_cstring(ctx.window_title),
-			i32(sdl.WINDOWPOS_UNDEFINED),
-			i32(sdl.WINDOWPOS_UNDEFINED),
-			width,
-			height,
-			sdl.WindowFlags{.SHOWN, .RESIZABLE, .VULKAN},
-		)
-	}
+	fmt.assertf(sdl.Init(init_flags) >= 0, "Could not initialize SDL")
+	
+	graphics_load()
+
+	ctx.window_width = width
+	ctx.window_height = height
+	
+	cstr := strings.clone_to_cstring(ctx.window_title); defer delete(cstr)
+	ctx.window = sdl.CreateWindow(
+		cstr,
+		i32(sdl.WINDOWPOS_UNDEFINED),
+		i32(sdl.WINDOWPOS_UNDEFINED),
+		width,
+		height,
+		sdl.WindowFlags{.SHOWN, .RESIZABLE, .VULKAN},
+	)
+	
+	graphics_init()
 
 	ctx.initialized = true
 }
 
-// Starts the game context's run loop.
+//****************************************************************************//
+// Run
+//****************************************************************************//
+
 run :: proc() {
-	fmt.assertf(ctx.initialized, "runtime context not initialized")
+	fmt.assertf(ctx.initialized, "Runtime context not initialized")
 	
 	for callback in ctx.on_load {
 		callback()
@@ -97,11 +118,28 @@ run :: proc() {
 	}
 }
 
-// Shuts down the game context.
+//****************************************************************************//
+// Exit
+//****************************************************************************//
+
 exit :: proc() {
-	fmt.assertf(ctx.initialized, "runtime context not initialized")
+	context.logger = debug_log
+	if !ctx.initialized {
+		fmt.eprintln("Context not initialized before exit")
+		return
+	}
+	graphics_destroy()
+
 	sdl.DestroyWindow(ctx.window)
 	sdl.Quit()
+	delete(ctx.on_load)
+	delete(ctx.on_ready)
+	delete(ctx.on_update)
+	delete(ctx.on_draw)
+	
+	when ODIN_DEBUG {
+		log.destroy_console_logger(&debug_log)
+	}
 }
 
 //****************************************************************************//
@@ -127,12 +165,13 @@ set_window_size :: proc(width: i32, height: i32) {
 set_window_title :: proc(title: string) {
 	ctx.window_title = title
 	if ctx.initialized {
-		sdl.SetWindowTitle(ctx.window, strings.clone_to_cstring(title))
+		cstr := strings.clone_to_cstring(title); defer delete(cstr)
+		sdl.SetWindowTitle(ctx.window, cstr)
 	}
 }
 
 //****************************************************************************//
-// Callback methods
+// Callback Procs
 //****************************************************************************//
 
 on_load :: proc(callback: proc()) {
