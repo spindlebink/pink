@@ -11,7 +11,9 @@ Error :: enum{
 	VULKAN_CREATE_INSTANCE_FAILED,
 	VULKAN_REQUIRED_EXTENSION_UNSUPPORTED,
 	VULKAN_VALIDATION_LAYER_UNSUPPORTED,
-	VULKAN_NO_SUPPORTED_GPU,
+	NO_VULKAN_SUPPORTED_GPU,
+	VULKAN_NO_SUITABLE_GPU,
+	VULKAN_CREATE_DEVICE_FAILED,
 }
 error_buf: [dynamic]Error
 
@@ -87,7 +89,9 @@ init :: proc(window: ^sdl.Window) -> (ok: bool = true) {
 destroy :: proc() {
 	log.debug("Destroying Vulkan renderer...")
 
+	vk.DestroyDevice(ctx.device, nil)
 	vk.DestroyInstance(ctx.instance, nil)
+	delete(error_buf)
 
 	log.debug("Vulkan renderer successfully destroyed.")
 }
@@ -193,7 +197,7 @@ select_physical_device :: proc() -> (ok: bool = true) {
 		device_count: u32
 		vk.EnumeratePhysicalDevices(ctx.instance, &device_count, nil)
 		if device_count == 0 {
-			append(&error_buf, Error.VULKAN_NO_SUPPORTED_GPU)
+			append(&error_buf, Error.NO_VULKAN_SUPPORTED_GPU)
 			return false
 		}
 		devices := make([]vk.PhysicalDevice, int(device_count)); defer delete(devices)
@@ -215,6 +219,11 @@ select_physical_device :: proc() -> (ok: bool = true) {
 					break
 				}
 			}
+		}
+		
+		if ctx.physical_device == nil {
+			append(&error_buf, Error.VULKAN_NO_SUITABLE_GPU)
+			return false
 		}
 	}
 	log.debug("Physical Vulkan device good to go.")
@@ -243,5 +252,39 @@ find_queue_families :: proc(device: vk.PhysicalDevice) -> (queue_families: VK_Qu
 
 @(private)
 create_logical_device :: proc() -> (ok: bool = true) {
+	log.debug("Creating logical Vulkan device...")
+	queue_families := find_queue_families(ctx.physical_device)
+	
+	queue_priorities := make([]f32, 1); defer delete(queue_priorities)
+	queue_priorities[0] = 1.0
+
+	queue_create_info: vk.DeviceQueueCreateInfo
+	queue_create_info.sType = vk.StructureType.DEVICE_QUEUE_CREATE_INFO
+	queue_create_info.queueFamilyIndex = queue_families.graphics.(u32)
+	queue_create_info.queueCount = 1
+	queue_create_info.pQueuePriorities = raw_data(queue_priorities)
+	
+	device_features: vk.PhysicalDeviceFeatures
+
+	create_info: vk.DeviceCreateInfo
+	create_info.sType = vk.StructureType.DEVICE_CREATE_INFO
+	create_info.pQueueCreateInfos = &queue_create_info
+	create_info.queueCreateInfoCount = 1
+	create_info.pEnabledFeatures = &device_features
+	create_info.enabledExtensionCount = 0
+	
+	when ODIN_DEBUG {
+		create_info.enabledLayerCount = u32(len(validation_layers))
+		create_info.ppEnabledLayerNames = raw_data(validation_layers)
+	} else {
+		create_info.enabledLayerCount = 0
+	}
+	
+	if vk.CreateDevice(ctx.physical_device, &create_info, nil, &ctx.device) != .SUCCESS {
+		append(&error_buf, Error.VULKAN_CREATE_DEVICE_FAILED)
+		return false
+	}
+	
+	log.debug("Logical Vulkan device good to go.")
 	return
 }

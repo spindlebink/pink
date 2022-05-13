@@ -8,6 +8,9 @@ import render "vk"
 graphics_load :: proc() {
 	if ok := render.load(); !ok {
 		log.fatalf("Could not load renderer")
+		for error in &render.error_buf {
+			log.fatalf("\t%s", error)
+		}
 	}
 }
 
@@ -15,6 +18,9 @@ graphics_load :: proc() {
 graphics_init :: proc() {
 	if ok := render.init(ctx.window); !ok {
 		log.fatalf("Could not initialize renderer")
+		for error in &render.error_buf {
+			log.fatalf("\t%s", error)
+		}
 	}
 }
 
