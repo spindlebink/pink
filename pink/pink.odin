@@ -110,6 +110,8 @@ run :: proc() {
 			callback()
 		}
 		
+		graphics_draw()
+		
 		total_frame_time := time.tick_diff(frame_start_time, time.tick_now())
 		if ctx.target_frame_time != 0 && total_frame_time < ctx.target_frame_time {
 			time.accurate_sleep(ctx.target_frame_time - total_frame_time)
