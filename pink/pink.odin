@@ -96,8 +96,14 @@ run :: proc() {
 		
 		event: sdl.Event
 		for sdl.PollEvent(&event) != 0 {
-			if event.type == sdl.EventType.QUIT {
+			#partial switch event.type {
+			case .QUIT:
 				ctx.should_close = true
+			case .WINDOWEVENT:
+				#partial switch event.window.event {
+				case .SIZE_CHANGED:
+					graphics_trigger_resize()
+				}
 			}
 		}
 		

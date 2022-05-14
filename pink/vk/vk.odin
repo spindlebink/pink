@@ -70,6 +70,7 @@ VK_Context :: struct {
 	image_available_semaphores: [dynamic]vk.Semaphore,
 	render_finished_semaphores: [dynamic]vk.Semaphore,
 	in_flight_fences: [dynamic]vk.Fence,
+	framebuffer_resized: bool,
 }
 
 VALIDATION_LAYERS: []cstring : {
@@ -182,24 +183,30 @@ init :: proc(window: ^sdl.Window) -> (ok := true) {
 	return
 }
 
+trigger_resize :: proc() {
+	ctx.framebuffer_resized = true
+}
+
 //****************************************************************************//
 // Draw Frame
 //****************************************************************************//
 
 draw_frame :: proc() -> (ok := true) {
 	vk.WaitForFences(ctx.device, 1, &ctx.in_flight_fences[ctx.current_frame], true, bits.U64_MAX)
-	vk.ResetFences(ctx.device, 1, &ctx.in_flight_fences[ctx.current_frame])
 	
 	image_index: u32
 	result := vk.AcquireNextImageKHR(ctx.device, ctx.swap_chain, bits.U64_MAX, ctx.image_available_semaphores[ctx.current_frame], 0, &image_index)
 	
-	if result == .ERROR_OUT_OF_DATE_KHR {
+	if result == .ERROR_OUT_OF_DATE_KHR || result == .SUBOPTIMAL_KHR || ctx.framebuffer_resized {
+		ctx.framebuffer_resized = false
 		recreate_swap_chain()
+		return
 	} else if result != .SUCCESS && result != .SUBOPTIMAL_KHR {
 		append(&error_buf, Error.VULKAN_ACQUIRE_NEXT_IMAGE_FAILED)
 		return false
 	}
 	
+	vk.ResetFences(ctx.device, 1, &ctx.in_flight_fences[ctx.current_frame])
 	vk.ResetCommandBuffer(ctx.command_buffers[ctx.current_frame], {})
 	record_command_buffer(ctx.command_buffers[ctx.current_frame], image_index)
 	

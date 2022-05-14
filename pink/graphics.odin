@@ -38,3 +38,8 @@ graphics_draw :: proc() {
 graphics_destroy :: proc() {
 	render.cleanup()
 }
+
+@(private)
+graphics_trigger_resize :: proc() {
+	render.trigger_resize()
+}
