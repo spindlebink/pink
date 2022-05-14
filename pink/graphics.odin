@@ -36,5 +36,5 @@ graphics_draw :: proc() {
 
 @(private)
 graphics_destroy :: proc() {
-	render.destroy()
+	render.cleanup()
 }

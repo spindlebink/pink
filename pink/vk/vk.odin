@@ -30,11 +30,13 @@ Error :: enum{
 	VULKAN_END_COMMAND_BUFFER_FAILED,
 	VULKAN_CREATE_SYNC_OBJECTS_FAILED,
 	VULKAN_QUEUE_SUBMIT_FAILED,
+	VULKAN_ACQUIRE_NEXT_IMAGE_FAILED,
 }
 error_buf: [dynamic]Error
 
 DEFAULT_VERTEX_SHADER_SPV :: "shader.vert.spv"
 DEFAULT_FRAGMENT_SHADER_SPV :: "shader.frag.spv"
+MAX_FRAMES_IN_FLIGHT :: 2
 
 //****************************************************************************//
 // Context Structure
@@ -62,11 +64,12 @@ VK_Context :: struct {
 	graphics_pipeline: vk.Pipeline,
 
 	command_pool: vk.CommandPool,
-	command_buffer: vk.CommandBuffer,
-	
-	image_available_semaphore: vk.Semaphore,
-	render_finished_semaphore: vk.Semaphore,
-	in_flight_fence: vk.Fence,
+	current_frame: u32,
+
+	command_buffers: [dynamic]vk.CommandBuffer,
+	image_available_semaphores: [dynamic]vk.Semaphore,
+	render_finished_semaphores: [dynamic]vk.Semaphore,
+	in_flight_fences: [dynamic]vk.Fence,
 }
 
 VALIDATION_LAYERS: []cstring : {
@@ -172,7 +175,7 @@ init :: proc(window: ^sdl.Window) -> (ok := true) {
 	if !create_graphics_pipeline() do return false
 	if !create_framebuffers() do return false
 	if !create_command_pool() do return false
-	if !create_command_buffer() do return false
+	if !create_command_buffers() do return false
 	if !create_sync_objects() do return false
 	
 	log.debug("Vulkan successfully initialized.")
@@ -184,18 +187,26 @@ init :: proc(window: ^sdl.Window) -> (ok := true) {
 //****************************************************************************//
 
 draw_frame :: proc() -> (ok := true) {
-	vk.WaitForFences(ctx.device, 1, &ctx.in_flight_fence, true, bits.U64_MAX)
-	vk.ResetFences(ctx.device, 1, &ctx.in_flight_fence)
+	vk.WaitForFences(ctx.device, 1, &ctx.in_flight_fences[ctx.current_frame], true, bits.U64_MAX)
+	vk.ResetFences(ctx.device, 1, &ctx.in_flight_fences[ctx.current_frame])
 	
 	image_index: u32
-	vk.AcquireNextImageKHR(ctx.device, ctx.swap_chain, bits.U64_MAX, ctx.image_available_semaphore, 0, &image_index)
-	vk.ResetCommandBuffer(ctx.command_buffer, {})
-	record_command_buffer(ctx.command_buffer, image_index)
+	result := vk.AcquireNextImageKHR(ctx.device, ctx.swap_chain, bits.U64_MAX, ctx.image_available_semaphores[ctx.current_frame], 0, &image_index)
+	
+	if result == .ERROR_OUT_OF_DATE_KHR {
+		recreate_swap_chain()
+	} else if result != .SUCCESS && result != .SUBOPTIMAL_KHR {
+		append(&error_buf, Error.VULKAN_ACQUIRE_NEXT_IMAGE_FAILED)
+		return false
+	}
+	
+	vk.ResetCommandBuffer(ctx.command_buffers[ctx.current_frame], {})
+	record_command_buffer(ctx.command_buffers[ctx.current_frame], image_index)
 	
 	submit_info: vk.SubmitInfo
 	submit_info.sType = .SUBMIT_INFO
 
-	wait_semaphores := []vk.Semaphore{ctx.image_available_semaphore}
+	wait_semaphores := []vk.Semaphore{ctx.image_available_semaphores[ctx.current_frame]}
 	wait_stages := []vk.PipelineStageFlags{{.COLOR_ATTACHMENT_OUTPUT}}
 	
 	submit_info.waitSemaphoreCount = 1
@@ -203,13 +214,13 @@ draw_frame :: proc() -> (ok := true) {
 	submit_info.pWaitDstStageMask = raw_data(wait_stages)
 	
 	submit_info.commandBufferCount = 1
-	submit_info.pCommandBuffers = &ctx.command_buffer
+	submit_info.pCommandBuffers = &ctx.command_buffers[ctx.current_frame]
 	
-	signal_semaphores := []vk.Semaphore{ctx.render_finished_semaphore}
+	signal_semaphores := []vk.Semaphore{ctx.render_finished_semaphores[ctx.current_frame]}
 	submit_info.signalSemaphoreCount = 1
 	submit_info.pSignalSemaphores = raw_data(signal_semaphores)
 	
-	if vk.QueueSubmit(ctx.graphics_queue, 1, &submit_info, ctx.in_flight_fence) != .SUCCESS {
+	if vk.QueueSubmit(ctx.graphics_queue, 1, &submit_info, ctx.in_flight_fences[ctx.current_frame]) != .SUCCESS {
 		append(&error_buf, Error.VULKAN_QUEUE_SUBMIT_FAILED)
 		return false
 	}
@@ -226,24 +237,46 @@ draw_frame :: proc() -> (ok := true) {
 	present_info.pResults = nil
 	
 	vk.QueuePresentKHR(ctx.present_queue, &present_info)
+	ctx.current_frame = (ctx.current_frame + 1) % MAX_FRAMES_IN_FLIGHT
 	
 	return
 }
 
 //****************************************************************************//
-// Destroy
+// Cleanup
 //****************************************************************************//
 
-destroy :: proc() {
+cleanup :: proc() {
 	log.debug("Destroying Vulkan renderer...")
 
 	vk.DeviceWaitIdle(ctx.device)
+	cleanup_swap_chain()
 	
-	vk.DestroySemaphore(ctx.device, ctx.image_available_semaphore, nil)
-	vk.DestroySemaphore(ctx.device, ctx.render_finished_semaphore, nil)
-	vk.DestroyFence(ctx.device, ctx.in_flight_fence, nil)
+	for i := 0; i < MAX_FRAMES_IN_FLIGHT; i += 1 {
+		vk.DestroySemaphore(ctx.device, ctx.image_available_semaphores[i], nil)
+		vk.DestroySemaphore(ctx.device, ctx.render_finished_semaphores[i], nil)
+		vk.DestroyFence(ctx.device, ctx.in_flight_fences[i], nil)
+	}
+	
 	vk.DestroyCommandPool(ctx.device, ctx.command_pool, nil)
+	vk.DestroySurfaceKHR(ctx.instance, ctx.surface, nil)
+	vk.DestroyDevice(ctx.device, nil)
+	vk.DestroyInstance(ctx.instance, nil)
 
+	delete(ctx.image_available_semaphores)
+	delete(ctx.render_finished_semaphores)
+	delete(ctx.in_flight_fences)
+	delete(ctx.command_buffers)
+	delete(ctx.swap_chain_images)
+	delete(ctx.swap_chain_image_views)
+	delete(ctx.swap_chain_framebuffers)
+	clear(&error_buf)
+
+	log.debug("Vulkan renderer successfully destroyed.")
+}
+
+@(private)
+cleanup_swap_chain :: proc() {
 	for framebuffer in ctx.swap_chain_framebuffers {
 		vk.DestroyFramebuffer(ctx.device, framebuffer, nil)
 	}
@@ -257,15 +290,6 @@ destroy :: proc() {
 	}
 
 	vk.DestroySwapchainKHR(ctx.device, ctx.swap_chain, nil)
-	vk.DestroySurfaceKHR(ctx.instance, ctx.surface, nil)
-	vk.DestroyDevice(ctx.device, nil)
-	vk.DestroyInstance(ctx.instance, nil)
-	delete(ctx.swap_chain_images)
-	delete(ctx.swap_chain_image_views)
-	delete(ctx.swap_chain_framebuffers)
-	clear(&error_buf)
-
-	log.debug("Vulkan renderer successfully destroyed.")
 }
 
 //****************************************************************************//
@@ -507,6 +531,20 @@ create_logical_device :: proc() -> (ok := true) {
 //****************************************************************************//
 // Create Swap Chain
 //****************************************************************************//
+
+@(private)
+recreate_swap_chain :: proc() -> (ok := true) {
+	vk.DeviceWaitIdle(ctx.device)
+	cleanup_swap_chain()
+	
+	create_swap_chain()
+	create_image_views()
+	create_render_pass()
+	create_graphics_pipeline()
+	create_framebuffers()
+	
+	return
+}
 
 @(private)
 create_swap_chain :: proc() -> (ok := true) {
@@ -914,16 +952,18 @@ create_command_pool :: proc() -> (ok := true) {
 //****************************************************************************//
 
 @(private)
-create_command_buffer :: proc() -> (ok := true) {
+create_command_buffers :: proc() -> (ok := true) {
 	log.debug("Creating command buffer...")
+	
+	resize(&ctx.command_buffers, MAX_FRAMES_IN_FLIGHT)
 	
 	alloc_info: vk.CommandBufferAllocateInfo
 	alloc_info.sType = .COMMAND_BUFFER_ALLOCATE_INFO
 	alloc_info.commandPool = ctx.command_pool
 	alloc_info.level = .PRIMARY
-	alloc_info.commandBufferCount = 1
+	alloc_info.commandBufferCount = u32(len(ctx.command_buffers))
 	
-	if vk.AllocateCommandBuffers(ctx.device, &alloc_info, &ctx.command_buffer) != .SUCCESS {
+	if vk.AllocateCommandBuffers(ctx.device, &alloc_info, raw_data(ctx.command_buffers)) != .SUCCESS {
 		append(&error_buf, Error.VULKAN_ALLOCATE_COMMAND_BUFFERS_FAILED)
 		return false
 	}
@@ -978,6 +1018,10 @@ record_command_buffer :: proc(command_buffer: vk.CommandBuffer, image_index: u32
 
 @(private)
 create_sync_objects :: proc() -> (ok := true) {
+	resize(&ctx.image_available_semaphores, MAX_FRAMES_IN_FLIGHT)
+	resize(&ctx.render_finished_semaphores, MAX_FRAMES_IN_FLIGHT)
+	resize(&ctx.in_flight_fences, MAX_FRAMES_IN_FLIGHT)
+	
 	semaphore_info: vk.SemaphoreCreateInfo
 	semaphore_info.sType = .SEMAPHORE_CREATE_INFO
 	
@@ -985,13 +1029,14 @@ create_sync_objects :: proc() -> (ok := true) {
 	fence_info.sType = .FENCE_CREATE_INFO
 	fence_info.flags = {.SIGNALED}
 	
-	if vk.CreateSemaphore(ctx.device, &semaphore_info, nil, &ctx.image_available_semaphore) != .SUCCESS ||
-		 vk.CreateSemaphore(ctx.device, &semaphore_info, nil, &ctx.render_finished_semaphore) != .SUCCESS ||
-		 vk.CreateFence(ctx.device, &fence_info, nil, &ctx.in_flight_fence) != .SUCCESS {
-		append(&error_buf, Error.VULKAN_CREATE_SYNC_OBJECTS_FAILED)
-		return false
+	for i := 0; i < MAX_FRAMES_IN_FLIGHT; i += 1 {
+		if vk.CreateSemaphore(ctx.device, &semaphore_info, nil, &ctx.image_available_semaphores[i]) != .SUCCESS ||
+			 vk.CreateSemaphore(ctx.device, &semaphore_info, nil, &ctx.render_finished_semaphores[i]) != .SUCCESS ||
+			 vk.CreateFence(ctx.device, &fence_info, nil, &ctx.in_flight_fences[i]) != .SUCCESS {
+			append(&error_buf, Error.VULKAN_CREATE_SYNC_OBJECTS_FAILED)
+			return false
+		}
 	}
 	
 	return
 }
-
