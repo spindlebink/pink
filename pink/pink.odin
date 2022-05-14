@@ -12,6 +12,7 @@ Context :: struct {
 	window_width,
 	window_height: i32,
 	window_title: string,
+	window_minimized: bool,
 
 	initialized: bool,
 	should_close: bool,
@@ -49,6 +50,8 @@ init :: proc(width: i32 = 1024, height: i32 = 768) {
 	if ctx.window_title == "" {
 		ctx.window_title = "Window"
 	}
+	
+	ctx.window_minimized = false
 
 	init_flags: bit_set[sdl.InitFlag; u32] : sdl.InitFlags{.VIDEO}
 	fmt.assertf(sdl.Init(init_flags) >= 0, "Could not initialize SDL")
@@ -93,6 +96,7 @@ run :: proc() {
 
 	for !ctx.should_close {
 		frame_start_time = time.tick_now()
+		just_maximized := false
 		
 		event: sdl.Event
 		for sdl.PollEvent(&event) != 0 {
@@ -103,6 +107,13 @@ run :: proc() {
 				#partial switch event.window.event {
 				case .SIZE_CHANGED:
 					graphics_trigger_resize()
+				case .MINIMIZED:
+					ctx.window_minimized = true
+				case .RESTORED:
+					fallthrough
+				case .MAXIMIZED:
+					just_maximized = true
+					ctx.window_minimized = false
 				}
 			}
 		}
@@ -116,7 +127,13 @@ run :: proc() {
 			callback()
 		}
 		
-		graphics_draw()
+		if ctx.window_minimized {
+			if just_maximized {
+				graphics_trigger_resize()
+			}
+		} else {
+			graphics_draw()
+		}
 		
 		total_frame_time := time.tick_diff(frame_start_time, time.tick_now())
 		if ctx.target_frame_time != 0 && total_frame_time < ctx.target_frame_time {
