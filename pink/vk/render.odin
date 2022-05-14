@@ -10,17 +10,12 @@ import "core:log"
 //****************************************************************************//
 
 load :: proc() -> (ok := true) {
-	log.debug("Loading Vulkan...")
-
 	if sdl.Vulkan_LoadLibrary(nil) < 0 {
 		append(&error_buf, Error.SDL_VULKAN_LOAD_FAILED)
 		return false
 	}
-	
 	vk.load_proc_addresses(sdl.Vulkan_GetVkGetInstanceProcAddr())
-
-	log.debug("Vulkan successfully loaded.")
-	return true
+	return
 }
 
 init :: proc(window: ^sdl.Window) -> (ok := true) {

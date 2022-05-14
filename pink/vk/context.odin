@@ -139,8 +139,6 @@ delete_swap_chain_data :: proc(swap_chain_support: VK_Swap_Chain_Support_Details
 //****************************************************************************//
 
 create_context :: proc() -> (ok := true) {
-	log.debug("Initializing Vulkan...")
-
 	if !create_instance() do return false
 	if !sdl.Vulkan_CreateSurface(ctx.window, ctx.instance, &ctx.surface) {
 		append(&error_buf, Error.SDL_VULKAN_CREATE_SURFACE_FAILED)
@@ -158,7 +156,6 @@ create_context :: proc() -> (ok := true) {
 	if !create_command_buffers() do return false
 	if !create_sync_objects() do return false
 	
-	log.debug("Vulkan successfully initialized.")
 	return
 }
 
@@ -167,8 +164,6 @@ create_context :: proc() -> (ok := true) {
 //****************************************************************************//
 
 destroy_context :: proc() {
-	log.debug("Destroying Vulkan renderer...")
-
 	vk.DeviceWaitIdle(ctx.device)
 	destroy_swap_chain()
 	
@@ -192,7 +187,6 @@ destroy_context :: proc() {
 	delete(ctx.swap_chain_framebuffers)
 	clear(&error_buf)
 
-	log.debug("Vulkan renderer successfully destroyed.")
 }
 
 @(private)
@@ -218,8 +212,6 @@ destroy_swap_chain :: proc() {
 
 @(private)
 create_instance :: proc() -> (ok := true) {
-	log.debug("Creating Vulkan instance...")
-
 	app_info: vk.ApplicationInfo
 	app_info.sType = .APPLICATION_INFO
 
@@ -248,8 +240,7 @@ create_instance :: proc() -> (ok := true) {
 			}
 		}
 		all_supported &&= found
-		log.debug("Require extension:", required_extension, "(", found ? "supported" : "NOT supported!", ")")
-	}
+		}
 	
 	if !all_supported {
 		append(&error_buf, Error.VULKAN_REQUIRED_EXTENSION_UNSUPPORTED)
@@ -262,8 +253,7 @@ create_instance :: proc() -> (ok := true) {
 	
 	// Check validation layers and add them if in debug mode
 	when ODIN_DEBUG {
-		log.debug("Checking validation layer support...")
-		layer_count: u32
+			layer_count: u32
 		vk.EnumerateInstanceLayerProperties(&layer_count, nil)
 		supported_layers := make([]vk.LayerProperties, int(layer_count)); defer delete(supported_layers)
 		vk.EnumerateInstanceLayerProperties(&layer_count, raw_data(supported_layers))
@@ -278,27 +268,23 @@ create_instance :: proc() -> (ok := true) {
 				}
 			}
 			all_layers_supported &&= found
-			log.debug("Validation layer:", layer_name, "(", found ? "supported" : "NOT supported!", ")")
-			if !all_supported {
+					if !all_supported {
 				append(&error_buf, Error.VULKAN_VALIDATION_LAYER_UNSUPPORTED)
 				return false
 			}
 		}
 
-		log.debug("All required validation layers are supported.")
-		create_info.enabledLayerCount = u32(len(VALIDATION_LAYERS))
+			create_info.enabledLayerCount = u32(len(VALIDATION_LAYERS))
 		create_info.ppEnabledLayerNames = raw_data(VALIDATION_LAYERS)
 	}
 	
 	result := vk.CreateInstance(&create_info, nil, &ctx.instance)
-	log.debug("Instance creation result", result)
 	if result != .SUCCESS {
 		append(&error_buf, Error.VULKAN_CREATE_INSTANCE_FAILED)
 		return false
 	}
 	
 	vk.load_proc_addresses(ctx.instance)
-	log.debug("Vulkan instance successfully created.")
 	return
 }
 
@@ -308,7 +294,6 @@ create_instance :: proc() -> (ok := true) {
 
 @(private)
 select_physical_device :: proc() -> (ok := true) {
-	log.debug("Selecting physical Vulkan device...")
 	{
 		device_count: u32
 		vk.EnumeratePhysicalDevices(ctx.instance, &device_count, nil)
@@ -327,10 +312,8 @@ select_physical_device :: proc() -> (ok := true) {
 			
 			// Validate that the device is usable
 			if can_use_physical_device(device) {
-				log.debugf("Found %s", device_properties.deviceName)
 				ctx.physical_device = device
 				if device_properties.deviceType == .DISCRETE_GPU {
-					log.debug("Discrete GPU, using it")
 					break
 				}
 			}
@@ -341,7 +324,6 @@ select_physical_device :: proc() -> (ok := true) {
 			return false
 		}
 	}
-	log.debug("Physical Vulkan device good to go.")
 	return
 }
 
@@ -402,7 +384,6 @@ check_device_extension_support :: proc(device: vk.PhysicalDevice) -> bool {
 
 @(private)
 create_logical_device :: proc() -> (ok := true) {
-	log.debug("Creating logical Vulkan device...")
 	queue_families := find_queue_families(ctx.physical_device)
 	
 	queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, QUEUE_FAMILY_COUNT); defer delete(queue_create_infos)
@@ -440,11 +421,9 @@ create_logical_device :: proc() -> (ok := true) {
 		return false
 	}
 	
-	log.debug("Retrieving queue handles")
 	vk.GetDeviceQueue(ctx.device, queue_families.graphics.(u32), 0, &ctx.graphics_queue)
 	vk.GetDeviceQueue(ctx.device, queue_families.present.(u32), 0, &ctx.present_queue)
 	
-	log.debug("Logical Vulkan device good to go.")
 	return
 }
 
@@ -468,7 +447,6 @@ recreate_swap_chain :: proc() -> (ok := true) {
 
 @(private)
 create_swap_chain :: proc() -> (ok := true) {
-	log.debug("Creating swap chain...")
 	swap_chain_support := query_swap_chain_support(ctx.physical_device); defer delete_swap_chain_data(swap_chain_support)
 	surface_format := choose_swap_surface_format(&swap_chain_support.formats)
 	present_mode := choose_swap_present_mode(&swap_chain_support.present_modes)
@@ -519,7 +497,6 @@ create_swap_chain :: proc() -> (ok := true) {
 	ctx.swap_chain_image_format = surface_format.format
 	ctx.swap_chain_extent = extent
 
-	log.debug("Swap chain created successfully.")
 	return
 }
 
@@ -563,11 +540,9 @@ choose_swap_extent :: proc(capabilities: ^vk.SurfaceCapabilitiesKHR) -> vk.Exten
 
 @(private)
 create_image_views :: proc() -> (ok := true) {
-	log.debug("Creating swap chain image views...")
 	resize(&ctx.swap_chain_image_views, len(ctx.swap_chain_images))
 	
 	for swap_chain_image, index in ctx.swap_chain_images {
-		log.debugf("Creating swap chain image view #%d", index)
 		create_info: vk.ImageViewCreateInfo
 		create_info.sType = .IMAGE_VIEW_CREATE_INFO
 		create_info.image = swap_chain_image
@@ -588,7 +563,6 @@ create_image_views :: proc() -> (ok := true) {
 		}
 	}
 
-	log.debug("Swap chain image views created successfully.")
 	return
 }
 
@@ -598,7 +572,6 @@ create_image_views :: proc() -> (ok := true) {
 
 @(private)
 create_render_pass :: proc() -> (ok := true) {
-	log.debug("Creating render pass...")
 	color_attachment: vk.AttachmentDescription
 	color_attachment.format = ctx.swap_chain_image_format
 	color_attachment.samples = {._1}
@@ -641,7 +614,6 @@ create_render_pass :: proc() -> (ok := true) {
 		return false
 	}
 
-	log.debug("Render pass created successfully.")
 	return
 }
 
@@ -651,17 +623,13 @@ create_render_pass :: proc() -> (ok := true) {
 
 @(private)
 create_graphics_pipeline :: proc() -> (ok := true) {
-	log.debug("Creating graphics pipeline...")
-	
 	vertex_shader_module, fragment_shader_module: vk.ShaderModule
 	vertex_module_created, fragment_module_created: bool
-	log.debug("Loading vertex shader...")
 	if !create_shader_module(&vertex_shader_module, #load(DEFAULT_VERTEX_SHADER_SPV)) {
 		append(&error_buf, Error.VULKAN_CREATE_SHADER_MODULE_FAILED)
 		return false
 	}
 
-	log.debug("Loading fragment shader...")
 	if !create_shader_module(&fragment_shader_module, #load(DEFAULT_FRAGMENT_SHADER_SPV)) {
 		append(&error_buf, Error.VULKAN_CREATE_SHADER_MODULE_FAILED)
 		return false
@@ -793,13 +761,11 @@ create_graphics_pipeline :: proc() -> (ok := true) {
 
 	vk.DestroyShaderModule(ctx.device, fragment_shader_module, nil)
 	vk.DestroyShaderModule(ctx.device, vertex_shader_module, nil)
-	log.debug("Graphics pipeline created successfully.")
 	return
 }
 
 @(private)
 create_shader_module :: proc(shader_module: ^vk.ShaderModule, code: []u8) -> (ok := true) {
-	log.debug("Creating shader module...")
 	create_info: vk.ShaderModuleCreateInfo
 	create_info.sType = .SHADER_MODULE_CREATE_INFO
 	create_info.codeSize = len(code)
@@ -809,7 +775,6 @@ create_shader_module :: proc(shader_module: ^vk.ShaderModule, code: []u8) -> (ok
 		return false
 	}
 	
-	log.debug("Shader module created successfully.")
 	return
 }
 
@@ -819,7 +784,6 @@ create_shader_module :: proc(shader_module: ^vk.ShaderModule, code: []u8) -> (ok
 
 @(private)
 create_framebuffers :: proc() -> (ok := true) {
-	log.debug("Creating framebuffers...")
 	resize(&ctx.swap_chain_framebuffers, len(ctx.swap_chain_image_views))
 	
 	for image_view, index in &ctx.swap_chain_image_views {
@@ -840,7 +804,6 @@ create_framebuffers :: proc() -> (ok := true) {
 		}
 	}
 	
-	log.debug("Framebuffers created successfully.")
 	return
 }
 
@@ -850,8 +813,6 @@ create_framebuffers :: proc() -> (ok := true) {
 
 @(private)
 create_command_pool :: proc() -> (ok := true) {
-	log.debug("Creating command pool...")
-	
 	queue_family_indices := find_queue_families(ctx.physical_device)
 	pool_info: vk.CommandPoolCreateInfo
 	pool_info.sType = .COMMAND_POOL_CREATE_INFO
@@ -863,7 +824,6 @@ create_command_pool :: proc() -> (ok := true) {
 		return false
 	}
 	
-	log.debug("Command pool created successfully.")
 	return
 }
 
@@ -873,8 +833,6 @@ create_command_pool :: proc() -> (ok := true) {
 
 @(private)
 create_command_buffers :: proc() -> (ok := true) {
-	log.debug("Creating command buffer...")
-	
 	resize(&ctx.command_buffers, MAX_FRAMES_IN_FLIGHT)
 	
 	alloc_info: vk.CommandBufferAllocateInfo
@@ -888,7 +846,6 @@ create_command_buffers :: proc() -> (ok := true) {
 		return false
 	}
 	
-	log.debug("Command buffer created successfully.")
 	return
 }
 

@@ -25,11 +25,6 @@ Context :: struct {
 	on_exit: [dynamic]proc(),
 }
 
-when ODIN_DEBUG {
-	@(private)
-	debug_log: log.Logger
-}
-
 @(private)
 ctx: Context
 
@@ -38,13 +33,6 @@ ctx: Context
 //****************************************************************************//
 
 init :: proc(width: i32 = 1024, height: i32 = 768) {
-	when ODIN_DEBUG {
-		logger_options := log.Options{.Level, .Line, .Time, .Short_File_Path}
-		lowest :: log.Level.Debug
-		debug_log = log.create_console_logger(opt = logger_options, lowest = lowest)
-		context.logger = debug_log
-	}
-	
 	fmt.assertf(!ctx.initialized, "Runtime context already initialized")
 	
 	if ctx.window_title == "" {
@@ -72,7 +60,6 @@ init :: proc(width: i32 = 1024, height: i32 = 768) {
 	)
 	
 	graphics_init()
-
 	ctx.initialized = true
 }
 
@@ -148,7 +135,6 @@ run :: proc() {
 //****************************************************************************//
 
 exit :: proc() {
-	context.logger = debug_log
 	if !ctx.initialized {
 		fmt.eprintln("Context not initialized before exit")
 		return
@@ -161,10 +147,6 @@ exit :: proc() {
 	delete(ctx.on_ready)
 	delete(ctx.on_update)
 	delete(ctx.on_draw)
-	
-	when ODIN_DEBUG {
-		log.destroy_console_logger(&debug_log)
-	}
 }
 
 //****************************************************************************//
