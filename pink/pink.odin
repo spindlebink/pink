@@ -93,7 +93,7 @@ run :: proc() {
 			case .WINDOWEVENT:
 				#partial switch event.window.event {
 				case .SIZE_CHANGED:
-					graphics_trigger_resize()
+					graphics_handle_resize()
 				case .MINIMIZED:
 					ctx.window_minimized = true
 				case .RESTORED:
@@ -116,7 +116,7 @@ run :: proc() {
 		
 		if ctx.window_minimized {
 			if just_maximized {
-				graphics_trigger_resize()
+				graphics_handle_resize()
 			}
 		} else {
 			graphics_draw()

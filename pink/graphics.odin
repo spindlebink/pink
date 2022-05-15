@@ -1,45 +1,39 @@
 package pink
 
-import "core:log"
 import "core:fmt"
 import render "vk"
 
 @(private)
 graphics_load :: proc() {
-	if ok := render.load(); !ok {
-		log.fatalf("Could not load renderer!")
-		for error in &render.error_buf {
-			log.fatalf("\t%s", error)
-		}
+	if response := render.load(); response != .OK {
+		fmt.eprintf("Error while loading renderer: %v\n", response)
 	}
 }
 
 @(private)
 graphics_init :: proc() {
-	if ok := render.init(ctx.window); !ok {
-		log.fatalf("Could not initialize renderer!")
-		for error in &render.error_buf {
-			log.fatalf("\t%s", error)
-		}
+	if response := render.init(ctx.window); response != .OK {
+		fmt.eprintf("Error while initializing renderer: %v\n", response)
 	}
 }
 
 @(private)
 graphics_draw :: proc() {
-	if ok := render.draw_frame(); !ok {
-		log.fatalf("Could not draw frame!")
-		for error in &render.error_buf {
-			log.fatalf("\t%s", error)
-		}
+	if response := render.draw(); response != .OK {
+		fmt.eprintf("Error while drawing: %v\n", response)
 	}
 }
 
 @(private)
 graphics_destroy :: proc() {
-	render.destroy()
+	if response := render.destroy(); response != .OK {
+		fmt.eprintf("Error while destroying renderer: %v\n", response)
+	}
 }
 
 @(private)
-graphics_trigger_resize :: proc() {
-	render.trigger_resize()
+graphics_handle_resize :: proc() {
+	if response := render.handle_resize(); response != .OK {
+		fmt.eprintf("Error while handling resize: %v\n", response)
+	}
 }
