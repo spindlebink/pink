@@ -20,9 +20,9 @@ semaphores, fences, etc.
 init_runtime :: proc(ctx: ^Context) -> Response {
 	response := Response.OK
 	
-	if response = init_vertex_buffer(ctx); response != .OK do return response
 	if response = init_commands(ctx); response != .OK do return response
 	if response = init_sync_objects(ctx); response != .OK do return response
+	if response = init_vertex_buffer(ctx); response != .OK do return response
 	
 	return response
 }
@@ -56,21 +56,57 @@ Initializes the vertex buffer.
 */
 
 init_vertex_buffer :: proc(ctx: ^Context) -> Response {
+	buffer_size := vk.DeviceSize(size_of(ctx.vertices[0]) * len(ctx.vertices))
+	
+	staging_buffer: vk.Buffer
+	staging_buffer_memory: vk.DeviceMemory
+	
+	init_response := init_buffer(
+		ctx,
+		buffer_size,
+		{.TRANSFER_SRC},
+		{.HOST_VISIBLE, .HOST_COHERENT},
+		&staging_buffer,
+		&staging_buffer_memory,
+	)
+	if init_response != .OK do return init_response
+	
+	data: rawptr
+	vk.MapMemory(ctx.device, staging_buffer_memory, 0, buffer_size, {}, &data)
+	mem.copy(data, raw_data(ctx.vertices), int(buffer_size))
+	vk.UnmapMemory(ctx.device, staging_buffer_memory)
+		
+	init_buffer(ctx, buffer_size, {.TRANSFER_DST, .VERTEX_BUFFER}, {.DEVICE_LOCAL}, &ctx.vertex_buffer, &ctx.vertex_buffer_memory)
+	
+	copy_buffer(ctx, staging_buffer, ctx.vertex_buffer, buffer_size)
+	vk.DestroyBuffer(ctx.device, staging_buffer, nil)
+	vk.FreeMemory(ctx.device, staging_buffer_memory, nil)
+	
+	return .OK
+}
+
+/*
+Initialize Buffer
+
+Helper proc to initialize a Vulkan buffer of any sort.
+*/
+
+init_buffer :: proc(ctx: ^Context, size: vk.DeviceSize, usage: vk.BufferUsageFlags, properties: vk.MemoryPropertyFlags, buffer: ^vk.Buffer, buffer_memory: ^vk.DeviceMemory) -> Response {
 	buffer_create_info := vk.BufferCreateInfo{
 		sType = .BUFFER_CREATE_INFO,
-		size = vk.DeviceSize(size_of(Vertex) * len(ctx.vertices)),
-		usage = {.VERTEX_BUFFER},
+		size = size,
+		usage = usage,
 		sharingMode = .EXCLUSIVE,
 		flags = {},
 	}
 	
-	if vk.CreateBuffer(ctx.device, &buffer_create_info, nil, &ctx.vertex_buffer) != .SUCCESS do return Response.VULKAN_CREATE_BUFFER_FAILED
+	if vk.CreateBuffer(ctx.device, &buffer_create_info, nil, buffer) != .SUCCESS do return Response.VULKAN_CREATE_BUFFER_FAILED
 	
 	memory_requirements: vk.MemoryRequirements
-	vk.GetBufferMemoryRequirements(ctx.device, ctx.vertex_buffer, &memory_requirements)
+	vk.GetBufferMemoryRequirements(ctx.device, buffer^, &memory_requirements)
 	
 	found_memory_type, success := find_memory_type(ctx, memory_requirements.memoryTypeBits, {.HOST_VISIBLE, .HOST_COHERENT})
-	if !success do return Response.VULKAN_NO_SUITABLE_MEMORY_TYPE
+	if !success do return .VULKAN_NO_SUITABLE_MEMORY_TYPE
 
 	allocate_info := vk.MemoryAllocateInfo{
 		sType = .MEMORY_ALLOCATE_INFO,
@@ -78,15 +114,54 @@ init_vertex_buffer :: proc(ctx: ^Context) -> Response {
 		memoryTypeIndex = found_memory_type,
 	}
 	
-	if vk.AllocateMemory(ctx.device, &allocate_info, nil, &ctx.vertex_buffer_memory) != .SUCCESS do return Response.VULKAN_ALLOCATE_MEMORY_FAILED
-	
-	vk.BindBufferMemory(ctx.device, ctx.vertex_buffer, ctx.vertex_buffer_memory, 0)
-	data: rawptr
-	vk.MapMemory(ctx.device, ctx.vertex_buffer_memory, 0, buffer_create_info.size, {}, &data)
-	mem.copy(data, raw_data(ctx.vertices), int(buffer_create_info.size))
-	vk.UnmapMemory(ctx.device, ctx.vertex_buffer_memory)
-	
+	if vk.AllocateMemory(ctx.device, &allocate_info, nil, buffer_memory) != .SUCCESS do return Response.VULKAN_ALLOCATE_MEMORY_FAILED
+	vk.BindBufferMemory(ctx.device, buffer^, buffer_memory^, 0)
+
 	return .OK
+}
+
+/*
+Copy Buffer
+
+Copies from one buffer to another.
+*/
+
+copy_buffer :: proc(ctx: ^Context, src: vk.Buffer, dst: vk.Buffer, size: vk.DeviceSize) {
+	allocate_info := vk.CommandBufferAllocateInfo{
+		sType = .COMMAND_BUFFER_ALLOCATE_INFO,
+		level = .PRIMARY,
+		commandPool = ctx.command_pool,
+		commandBufferCount = 1,
+	}
+	
+	command_buffer: vk.CommandBuffer
+	vk.AllocateCommandBuffers(ctx.device, &allocate_info, &command_buffer)
+	
+	begin_info := vk.CommandBufferBeginInfo{
+		sType = .COMMAND_BUFFER_BEGIN_INFO,
+		flags = {.ONE_TIME_SUBMIT},
+	}
+	
+	vk.BeginCommandBuffer(command_buffer, &begin_info)
+	
+	copy_region := vk.BufferCopy{
+		srcOffset = 0,
+		dstOffset = 0,
+		size = size,
+	}
+	
+	vk.CmdCopyBuffer(command_buffer, src, dst, 1, &copy_region)
+	vk.EndCommandBuffer(command_buffer)
+	
+	submit_info := vk.SubmitInfo{
+		sType = .SUBMIT_INFO,
+		commandBufferCount = 1,
+		pCommandBuffers = &command_buffer,
+	}
+
+	vk.QueueSubmit(ctx.queues.graphics, 1, &submit_info, 0)
+	vk.QueueWaitIdle(ctx.queues.graphics)
+	vk.FreeCommandBuffers(ctx.device, ctx.command_pool, 1, &command_buffer)
 }
 
 /*
@@ -102,6 +177,7 @@ find_memory_type :: proc(ctx: ^Context, type_filter: u32, properties: vk.MemoryP
 			return i, true
 		}
 	}
+
 	return 0, false
 }
 
