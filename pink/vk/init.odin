@@ -17,9 +17,7 @@ Loads the renderer to an initializable state. Uses SDL to load Vulkan.
 */
 
 load :: proc() -> Response {
-	if sdl.Vulkan_LoadLibrary(nil) < 0 {
-		return .SDL_VULKAN_LOAD_LIBRARY_FAILED
-	}
+	if sdl.Vulkan_LoadLibrary(nil) < 0 do return .SDL_VULKAN_LOAD_LIBRARY_FAILED
 	vk.load_proc_addresses(sdl.Vulkan_GetVkGetInstanceProcAddr())
 	return .OK
 }
@@ -43,6 +41,10 @@ init :: proc(window: ^sdl.Window) -> Response {
 	ctx.drawable_width, ctx.drawable_height = int(width), int(height)
 	
 	response := Response.OK
+
+	append(&ctx.vertices, Vertex{{0.0, -0.5}, {1.0, 0.0, 0.0}})
+	append(&ctx.vertices, Vertex{{0.5, 0.5}, {0.0, 1.0, 0.0}})
+	append(&ctx.vertices, Vertex{{-0.5, 0.5}, {0.0, 0.0, 1.0}})
 	
 	if response = init_instance(&ctx); response != .OK do return response
 	if response = init_surface(&ctx, window); response != .OK do return response
@@ -50,7 +52,7 @@ init :: proc(window: ^sdl.Window) -> Response {
 	if response = init_logical_device(&ctx); response != .OK do return response
 	if response = init_pipeline(&ctx); response != .OK do return response
 	if response = init_runtime(&ctx); response != .OK do return response
-	
+
 	return response
 }
 
@@ -72,6 +74,7 @@ destroy :: proc() -> Response {
 	
 	clear(&runtime_extensions)
 	delete(runtime_extensions)
+	delete(ctx.vertices)
 
 	return response
 }
@@ -96,4 +99,3 @@ handle_resize :: proc() -> Response {
 	ctx.reinit_graphics_pipeline = true
 	return .OK
 }
-

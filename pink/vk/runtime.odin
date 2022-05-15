@@ -8,6 +8,7 @@ Manages drawing each frame.
 package pink_vk
 
 import "core:math/bits"
+import "core:mem"
 import vk "vendor:vulkan"
 
 /*
@@ -19,6 +20,7 @@ semaphores, fences, etc.
 init_runtime :: proc(ctx: ^Context) -> Response {
 	response := Response.OK
 	
+	if response = init_vertex_buffer(ctx); response != .OK do return response
 	if response = init_commands(ctx); response != .OK do return response
 	if response = init_sync_objects(ctx); response != .OK do return response
 	
@@ -33,6 +35,9 @@ memory. The runtime can't be recovered after this.
 */
 
 delete_runtime :: proc(ctx: ^Context) -> Response {
+	vk.DestroyBuffer(ctx.device, ctx.vertex_buffer, nil)
+	vk.FreeMemory(ctx.device, ctx.vertex_buffer_memory, nil)
+
 	for i := 0; i < MAX_FRAMES_IN_FLIGHT; i += 1 {
 		vk.DestroySemaphore(ctx.device, ctx.image_available_semaphores[i], nil)
 		vk.DestroySemaphore(ctx.device, ctx.render_finished_semaphores[i], nil)
@@ -42,6 +47,62 @@ delete_runtime :: proc(ctx: ^Context) -> Response {
 	vk.DestroyCommandPool(ctx.device, ctx.command_pool, nil)
 	
 	return .OK
+}
+
+/*
+Initialize Vertex Buffer
+
+Initializes the vertex buffer.
+*/
+
+init_vertex_buffer :: proc(ctx: ^Context) -> Response {
+	buffer_create_info := vk.BufferCreateInfo{
+		sType = .BUFFER_CREATE_INFO,
+		size = vk.DeviceSize(size_of(Vertex) * len(ctx.vertices)),
+		usage = {.VERTEX_BUFFER},
+		sharingMode = .EXCLUSIVE,
+		flags = {},
+	}
+	
+	if vk.CreateBuffer(ctx.device, &buffer_create_info, nil, &ctx.vertex_buffer) != .SUCCESS do return Response.VULKAN_CREATE_BUFFER_FAILED
+	
+	memory_requirements: vk.MemoryRequirements
+	vk.GetBufferMemoryRequirements(ctx.device, ctx.vertex_buffer, &memory_requirements)
+	
+	found_memory_type, success := find_memory_type(ctx, memory_requirements.memoryTypeBits, {.HOST_VISIBLE, .HOST_COHERENT})
+	if !success do return Response.VULKAN_NO_SUITABLE_MEMORY_TYPE
+
+	allocate_info := vk.MemoryAllocateInfo{
+		sType = .MEMORY_ALLOCATE_INFO,
+		allocationSize = memory_requirements.size,
+		memoryTypeIndex = found_memory_type,
+	}
+	
+	if vk.AllocateMemory(ctx.device, &allocate_info, nil, &ctx.vertex_buffer_memory) != .SUCCESS do return Response.VULKAN_ALLOCATE_MEMORY_FAILED
+	
+	vk.BindBufferMemory(ctx.device, ctx.vertex_buffer, ctx.vertex_buffer_memory, 0)
+	data: rawptr
+	vk.MapMemory(ctx.device, ctx.vertex_buffer_memory, 0, buffer_create_info.size, {}, &data)
+	mem.copy(data, raw_data(ctx.vertices), int(buffer_create_info.size))
+	vk.UnmapMemory(ctx.device, ctx.vertex_buffer_memory)
+	
+	return .OK
+}
+
+/*
+Find Memory Type
+*/
+
+find_memory_type :: proc(ctx: ^Context, type_filter: u32, properties: vk.MemoryPropertyFlags) -> (u32, bool) {
+	memory_properties: vk.PhysicalDeviceMemoryProperties
+	vk.GetPhysicalDeviceMemoryProperties(ctx.physical_device, &memory_properties)
+	
+	for i: u32 = 0; i < memory_properties.memoryTypeCount; i += 1 {
+		if (type_filter & (1 << i) != 0) && (memory_properties.memoryTypes[i].propertyFlags & properties == properties) {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 /*
@@ -193,6 +254,11 @@ record_command_buffer :: proc(command_buffer: vk.CommandBuffer, image_index: u32
 	
 	vk.CmdBeginRenderPass(command_buffer, &render_pass_begin_info, .INLINE)
 	vk.CmdBindPipeline(command_buffer, .GRAPHICS, ctx.graphics_pipeline)
+	
+	vertex_buffers := []vk.Buffer{ctx.vertex_buffer}
+	offsets := []vk.DeviceSize{0}
+	vk.CmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffers[0], &offsets[0])
+	
 	vk.CmdDraw(command_buffer, 3, 1, 0, 0)
 	vk.CmdEndRenderPass(command_buffer)
 	

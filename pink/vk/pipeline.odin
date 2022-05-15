@@ -309,6 +309,9 @@ init_graphics_pipeline :: proc(ctx: ^Context) -> Response {
 	if vk.CreatePipelineLayout(ctx.device, &pipeline_layout_create_info, nil, &ctx.graphics_pipeline_layout) != .SUCCESS do return .VULKAN_CREATE_PIPELINE_LAYOUT_FAILED
 	
 	dynamic_states := []vk.DynamicState{.VIEWPORT, .LINE_WIDTH}
+	vertex_binding_descriptions := VERTEX_INPUT_BINDING_DESCRIPTION
+	vertex_attribute_descriptions := VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS
+	
 	pipeline_create_info := vk.GraphicsPipelineCreateInfo{
 		sType = .GRAPHICS_PIPELINE_CREATE_INFO,
 		layout = ctx.graphics_pipeline_layout,
@@ -317,8 +320,10 @@ init_graphics_pipeline :: proc(ctx: ^Context) -> Response {
 		pStages = &stage_create_infos[0],
 		pVertexInputState = &vk.PipelineVertexInputStateCreateInfo{
 			sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-			vertexBindingDescriptionCount = 0,
-			vertexAttributeDescriptionCount = 0,
+			vertexBindingDescriptionCount = 1,
+			pVertexBindingDescriptions = &vertex_binding_descriptions,
+			vertexAttributeDescriptionCount = u32(len(vertex_attribute_descriptions)),
+			pVertexAttributeDescriptions = &vertex_attribute_descriptions[0],
 		},
 		pInputAssemblyState = &vk.PipelineInputAssemblyStateCreateInfo{
 			sType = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
