@@ -1,0 +1,3 @@
+[submodule "pink/vk/vma"]
+	path = pink/vk/vma
+	url = https://github.com/spindlebink/odin-vma
