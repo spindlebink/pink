@@ -176,7 +176,7 @@ init :: proc(window: ^sdl.Window) {
 		&wgpu.BufferDescriptor{
 			usage = {.Vertex},
 			size = size_of(VERTICES),
-			mappedAtCreation = false,
+			mappedAtCreation = true,
 		},
 	)
 	
@@ -199,6 +199,11 @@ init :: proc(window: ^sdl.Window) {
 		attributeCount = 2,
 		attributes = raw_data(vertex_attributes),
 	}
+	
+	range := cast(^Vertex) wgpu.BufferGetMappedRange(ctx.vertex_buffer, 0, size_of(VERTICES))
+	verts := VERTICES
+	range^ = raw_data(verts)^
+	wgpu.BufferUnmap(ctx.vertex_buffer)
 
 	ctx.render_pipeline_layout = wgpu.DeviceCreatePipelineLayout(
 		ctx.device,
@@ -305,6 +310,7 @@ begin_render :: proc() {
 	
 	wgpu.RenderPassEncoderSetPipeline(ctx.render_pass, ctx.render_pipeline)
 	wgpu.RenderPassEncoderSetVertexBuffer(ctx.render_pass, 0, ctx.vertex_buffer, 0, wgpu.WHOLE_SIZE)
+	wgpu.RenderPassEncoderDraw(ctx.render_pass, 3, 1, 0, 0)
 }
 
 //
