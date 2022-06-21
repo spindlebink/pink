@@ -1,6 +1,3 @@
-[submodule "pink/vk/vma"]
-	path = pink/vk/vma
-	url = https://github.com/spindlebink/odin-vma
 [submodule "pink/graphics/wgpu"]
 	path = pink/graphics/wgpu
 	url = https://github.com/spindlebink/odin-wgpu
