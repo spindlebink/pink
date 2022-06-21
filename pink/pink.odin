@@ -6,11 +6,30 @@ import "core:strings"
 import "core:log"
 import sdl "vendor:sdl2"
 
+import "graphics"
+
+WINDOW_DEFAULT_WIDTH: u32 : 800
+WINDOW_DEFAULT_HEIGHT: u32 : 600
+
+Config :: struct {
+	window_width: u32,
+	window_height: u32,
+}
+
+fill_config_defaults :: proc(config: ^Config) {
+	if config.window_width == 0 do config.window_width = WINDOW_DEFAULT_WIDTH
+	if config.window_height == 0 do config.window_height = WINDOW_DEFAULT_HEIGHT
+}
+
+//
+// Context
+//
+
 @(private)
 Context :: struct {
 	window: ^sdl.Window,
 	window_width,
-	window_height: i32,
+	window_height: u32,
 	window_title: string,
 	window_minimized: bool,
 
@@ -28,11 +47,14 @@ Context :: struct {
 @(private)
 ctx: Context
 
-//****************************************************************************//
+//
 // Init
-//****************************************************************************//
+//
 
-init :: proc(width: i32 = 1024, height: i32 = 768) {
+init :: proc(config: Config = Config{}) {
+	conf := config
+	fill_config_defaults(&conf)
+	
 	fmt.assertf(!ctx.initialized, "Runtime context already initialized")
 	
 	if ctx.window_title == "" {
@@ -41,50 +63,50 @@ init :: proc(width: i32 = 1024, height: i32 = 768) {
 	
 	ctx.window_minimized = false
 
-	init_flags: bit_set[sdl.InitFlag; u32] : sdl.InitFlags{.VIDEO}
-	fmt.assertf(sdl.Init(init_flags) >= 0, "Could not initialize SDL")
+	init_flags := sdl.InitFlags{.VIDEO}
+	init_result := sdl.Init(init_flags)
+	fmt.assertf(init_result >= 0, "Could not initialize SDL")
 	
-	graphics_load()
+	ctx.window_width = config.window_width
+	ctx.window_height = config.window_height
+	
+	window_flags := sdl.WindowFlags{.SHOWN, .RESIZABLE}
 
-	ctx.window_width = width
-	ctx.window_height = height
+	when ODIN_OS == .Linux {
+		window_flags += {.VULKAN}
+	} else when ODIN_OS == .Darwin {
+		window_flags += {.METAL}
+	}
 	
-	cstr := strings.clone_to_cstring(ctx.window_title); defer delete(cstr)
 	ctx.window = sdl.CreateWindow(
-		cstr,
+		cast(cstring) raw_data(ctx.window_title),
 		i32(sdl.WINDOWPOS_UNDEFINED),
 		i32(sdl.WINDOWPOS_UNDEFINED),
-		width,
-		height,
-		sdl.WindowFlags{.SHOWN, .RESIZABLE, .VULKAN},
+		800,
+		600,
+		window_flags,
 	)
-	
-	graphics_init()
+
+	graphics.init(ctx.window)
 	ctx.initialized = true
 }
 
-//****************************************************************************//
+//
 // Run
-//****************************************************************************//
+//
 
 run :: proc() {
 	fmt.assertf(ctx.initialized, "Runtime context not initialized")
-	
-	for callback in ctx.on_load {
-		callback()
-	}
-	
-	for callback in ctx.on_ready {
-		callback()
-	}
-	
-	frame_start_time := time.tick_now()
-	delta := time.Duration(0)
+
+	for callback in ctx.on_load do callback()
+	for callback in ctx.on_ready do callback()
+
+	delta_time := time.Duration(0)
 
 	for !ctx.should_close {
-		frame_start_time = time.tick_now()
-		just_maximized := false
-		
+		frame_start_time := time.tick_now()
+
+		window_size_changed, maximized := false, false
 		event: sdl.Event
 		for sdl.PollEvent(&event) != 0 {
 			#partial switch event.type {
@@ -93,54 +115,40 @@ run :: proc() {
 			case .WINDOWEVENT:
 				#partial switch event.window.event {
 				case .SIZE_CHANGED:
-					graphics_handle_resize()
+					window_size_changed = true
 				case .MINIMIZED:
 					ctx.window_minimized = true
 				case .RESTORED:
 					fallthrough
 				case .MAXIMIZED:
-					just_maximized = true
+					maximized = true
 					ctx.window_minimized = false
 				}
 			}
 		}
-		
-		ms := time.duration_milliseconds(delta)
-		for callback in ctx.on_update {
-			callback(ms)
-		}
-		
-		for callback in ctx.on_draw {
-			callback()
-		}
-		
-		if ctx.window_minimized {
-			if just_maximized {
-				graphics_handle_resize()
-			}
-		} else {
-			graphics_draw()
-		}
-		
+
+		ms := time.duration_milliseconds(delta_time)
+
+		for callback in ctx.on_update do callback(ms)
+		for callback in ctx.on_draw do callback()
+
 		total_frame_time := time.tick_diff(frame_start_time, time.tick_now())
 		if ctx.target_frame_time != 0 && total_frame_time < ctx.target_frame_time {
 			time.sleep(ctx.target_frame_time - total_frame_time)
 		}
-		delta = time.tick_diff(frame_start_time, time.tick_now())
+		delta_time = time.tick_diff(frame_start_time, time.tick_now())
 	}
+
+	for callback in ctx.on_exit do callback()
+	exit()
 }
 
-//****************************************************************************//
+//
 // Exit
-//****************************************************************************//
+//
 
+@(private)
 exit :: proc() {
-	if !ctx.initialized {
-		fmt.eprintln("Context not initialized before exit")
-		return
-	}
-	graphics_destroy()
-
 	sdl.DestroyWindow(ctx.window)
 	sdl.Quit()
 	delete(ctx.on_load)
@@ -149,9 +157,9 @@ exit :: proc() {
 	delete(ctx.on_draw)
 }
 
-//****************************************************************************//
+//
 // Configuration
-//****************************************************************************//
+//
 
 set_target_fps :: proc(fps: f64) {
 	if fps == 0.0 {
@@ -161,11 +169,11 @@ set_target_fps :: proc(fps: f64) {
 	}
 }
 
-set_window_size :: proc(width: i32, height: i32) {
-	fmt.assertf(width > 0 && height > 0, "cannot set window size to <= 0")
+set_window_size :: proc(width: u32, height: u32) {
+	fmt.assertf(width > 0 && height > 0, "Cannot set window size to <= 0")
 	ctx.window_width, ctx.window_height = width, height
 	if ctx.initialized {
-		sdl.SetWindowSize(ctx.window, width, height)
+		sdl.SetWindowSize(ctx.window, cast(i32) width, cast(i32) height)
 	}
 }
 
@@ -177,9 +185,9 @@ set_window_title :: proc(title: string) {
 	}
 }
 
-//****************************************************************************//
+//
 // Callback Procs
-//****************************************************************************//
+//
 
 on_load :: proc(callback: proc()) {
 	append(&ctx.on_load, callback)

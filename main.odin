@@ -8,13 +8,13 @@ on_load :: proc() {
 }
 
 on_update :: proc(dt: f64) {
+	fmt.println(dt)
 }
 
 on_draw :: proc() {
 }
 
 main :: proc() {
-	// set up tracking allocator
 	tracker: mem.Tracking_Allocator
 	mem.tracking_allocator_init(&tracker, context.allocator)
 	defer mem.tracking_allocator_destroy(&tracker)
@@ -34,5 +34,4 @@ main :: proc() {
 	pink.on_update(on_update)
 	
 	pink.run()
-	pink.exit()
 }
