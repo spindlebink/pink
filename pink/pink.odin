@@ -67,8 +67,8 @@ init :: proc(config: Config = Config{}) {
 	init_result := sdl.Init(init_flags)
 	fmt.assertf(init_result >= 0, "Could not initialize SDL")
 	
-	ctx.window_width = config.window_width
-	ctx.window_height = config.window_height
+	ctx.window_width = conf.window_width
+	ctx.window_height = conf.window_height
 	
 	window_flags := sdl.WindowFlags{.SHOWN, .RESIZABLE}
 
@@ -82,8 +82,8 @@ init :: proc(config: Config = Config{}) {
 		cast(cstring) raw_data(ctx.window_title),
 		i32(sdl.WINDOWPOS_UNDEFINED),
 		i32(sdl.WINDOWPOS_UNDEFINED),
-		800,
-		600,
+		cast(i32) ctx.window_width,
+		cast(i32) ctx.window_height,
 		window_flags,
 	)
 
@@ -123,8 +123,16 @@ run :: proc() {
 				case .MAXIMIZED:
 					maximized = true
 					ctx.window_minimized = false
+					window_size_changed = true
 				}
 			}
+		}
+
+		if window_size_changed {
+			ww, wh: i32
+			sdl.GetWindowSize(ctx.window, &ww, &wh)
+			ctx.window_width, ctx.window_height = cast(u32) ww, cast(u32) wh
+			graphics.rebuild_swap_chain(ctx.window_width, ctx.window_height)
 		}
 
 		ms := time.duration_milliseconds(delta_time)

@@ -216,14 +216,23 @@ init :: proc(window: ^sdl.Window) {
 	window_width, window_height: i32
 	sdl.GetWindowSize(window, &window_width, &window_height)
 
+	rebuild_swap_chain(cast(u32) window_width, cast(u32) window_height)
+}
+
+//
+// Rebuild Swap Chain
+//
+
+rebuild_swap_chain :: proc(width: u32, height: u32) {
+	fmt.println("Rebuilding swap chain")
 	ctx.swap_chain = wgpu.DeviceCreateSwapChain(
 		ctx.device,
 		ctx.surface,
 		&wgpu.SwapChainDescriptor{
 			usage = {.RenderAttachment},
 			format = ctx.swap_chain_texture_format,
-			width = cast(u32) window_width,
-			height = cast(u32) window_height,
+			width = width,
+			height = height,
 			presentMode = .Fifo,
 		},
 	)
