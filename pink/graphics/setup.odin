@@ -31,6 +31,8 @@ Context :: struct {
 	next_texture: wgpu.TextureView,
 	command_encoder: wgpu.CommandEncoder,
 	render_pass: wgpu.RenderPassEncoder,
+
+	vertex_buffer: wgpu.Buffer,
 }
 
 @(private)
@@ -169,6 +171,35 @@ init :: proc(window: ^sdl.Window) {
 	core_shader := create_wgsl_shader_module(ctx.device, #load("shader.wgsl"))
 	ctx.swap_chain_texture_format = wgpu.SurfaceGetPreferredFormat(ctx.surface, ctx.adapter)
 
+	ctx.vertex_buffer = wgpu.DeviceCreateBuffer(
+		ctx.device,
+		&wgpu.BufferDescriptor{
+			usage = {.Vertex},
+			size = size_of(VERTICES),
+			mappedAtCreation = false,
+		},
+	)
+	
+	vertex_attributes: []wgpu.VertexAttribute = {
+		wgpu.VertexAttribute{
+			offset = cast(u64) offset_of(Vertex, position),
+			shaderLocation = 0,
+			format = .Float32x3,
+		},
+		wgpu.VertexAttribute{
+			offset = cast(u64) offset_of(Vertex, color),
+			shaderLocation = 1,
+			format = .Float32x3,
+		},
+	}
+
+	vertex_buffer_layout := wgpu.VertexBufferLayout{
+		arrayStride = cast(u64) size_of(Vertex),
+		stepMode = .Vertex,
+		attributeCount = 2,
+		attributes = raw_data(vertex_attributes),
+	}
+
 	ctx.render_pipeline_layout = wgpu.DeviceCreatePipelineLayout(
 		ctx.device,
 		&wgpu.PipelineLayoutDescriptor{},
@@ -182,6 +213,8 @@ init :: proc(window: ^sdl.Window) {
 			vertex = wgpu.VertexState{
 				module = core_shader,
 				entryPoint = "vs_main",
+				bufferCount = 1,
+				buffers = &vertex_buffer_layout,
 			},
 			primitive = wgpu.PrimitiveState{
 				topology = .TriangleList,
@@ -271,6 +304,7 @@ begin_render :: proc() {
 	)
 	
 	wgpu.RenderPassEncoderSetPipeline(ctx.render_pass, ctx.render_pipeline)
+	wgpu.RenderPassEncoderSetVertexBuffer(ctx.render_pass, 0, ctx.vertex_buffer, 0, wgpu.WHOLE_SIZE)
 }
 
 //
