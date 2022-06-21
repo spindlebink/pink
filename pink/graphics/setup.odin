@@ -27,6 +27,10 @@ Context :: struct {
 
 	render_pipeline_layout: wgpu.PipelineLayout,
 	render_pipeline: wgpu.RenderPipeline,
+	
+	next_texture: wgpu.TextureView,
+	command_encoder: wgpu.CommandEncoder,
+	render_pass: wgpu.RenderPassEncoder,
 }
 
 @(private)
@@ -236,4 +240,52 @@ rebuild_swap_chain :: proc(width: u32, height: u32) {
 			presentMode = .Fifo,
 		},
 	)
+}
+
+//
+// Begin Rendering
+//
+
+begin_render :: proc() {
+	ctx.next_texture = wgpu.SwapChainGetCurrentTextureView(ctx.swap_chain)
+	if ctx.next_texture == nil {
+		panic("Could not acquire next swap chain texture")
+	}
+	
+	ctx.command_encoder = wgpu.DeviceCreateCommandEncoder(
+		ctx.device,
+		&wgpu.CommandEncoderDescriptor{},
+	)
+	
+	ctx.render_pass = wgpu.CommandEncoderBeginRenderPass(
+		ctx.command_encoder,
+		&wgpu.RenderPassDescriptor{
+			colorAttachments = &wgpu.RenderPassColorAttachment{
+				view = ctx.next_texture,
+				loadOp = .Clear,
+				storeOp = .Store,
+				clearValue = wgpu.Color{0.25, 0.25, 0.25, 1.0},
+			},
+			colorAttachmentCount = 1,
+		},
+	)
+	
+	wgpu.RenderPassEncoderSetPipeline(ctx.render_pass, ctx.render_pipeline)
+}
+
+//
+// End Rendering
+//
+
+end_render :: proc() {
+	wgpu.RenderPassEncoderEnd(ctx.render_pass)
+	
+	queue := wgpu.DeviceGetQueue(ctx.device)
+	cmd_buffer := wgpu.CommandEncoderFinish(
+		ctx.command_encoder,
+		&wgpu.CommandBufferDescriptor{},
+	)
+	
+	wgpu.QueueSubmit(queue, 1, &cmd_buffer)
+	wgpu.SwapChainPresent(ctx.swap_chain)
 }

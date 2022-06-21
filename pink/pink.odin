@@ -138,7 +138,10 @@ run :: proc() {
 		ms := time.duration_milliseconds(delta_time)
 
 		for callback in ctx.on_update do callback(ms)
+
+		graphics.begin_render()
 		for callback in ctx.on_draw do callback()
+		graphics.end_render()
 
 		total_frame_time := time.tick_diff(frame_start_time, time.tick_now())
 		if ctx.target_frame_time != 0 && total_frame_time < ctx.target_frame_time {
