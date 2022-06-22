@@ -11,6 +11,7 @@ struct VertexOutput {
 @stage(vertex)
 fn vs_main(
     model: VertexInput,
+    @builtin(vertex_index) vertex_index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.color = model.color;
@@ -24,3 +25,4 @@ fn fs_main(
 ) -> @location(0) vec4<f32> {
     return vec4<f32>(in.color, 1.0);
 }
+

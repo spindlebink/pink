@@ -1,6 +1,7 @@
 package pink_graphics
 
 import "core:fmt"
+import "core:mem"
 import sdl "vendor:sdl2"
 import "wgpu/wgpu"
 
@@ -175,12 +176,12 @@ init :: proc(window: ^sdl.Window) {
 		ctx.device,
 		&wgpu.BufferDescriptor{
 			usage = {.Vertex},
-			size = size_of(VERTICES),
+			size = cast(u64) (size_of(Vertex) * len(VERTICES)),
 			mappedAtCreation = true,
 		},
 	)
 	
-	vertex_attributes: []wgpu.VertexAttribute = {
+	vertex_attributes := []wgpu.VertexAttribute{
 		wgpu.VertexAttribute{
 			offset = cast(u64) offset_of(Vertex, position),
 			shaderLocation = 0,
@@ -200,9 +201,11 @@ init :: proc(window: ^sdl.Window) {
 		attributes = raw_data(vertex_attributes),
 	}
 	
-	range := cast(^Vertex) wgpu.BufferGetMappedRange(ctx.vertex_buffer, 0, size_of(VERTICES))
+	range := cast([^]Vertex) wgpu.BufferGetMappedRange(ctx.vertex_buffer, 0, cast(uint) (size_of(Vertex) * len(VERTICES)))
 	verts := VERTICES
-	range^ = raw_data(verts)^
+	for i := 0; i < len(verts); i += 1 {
+		range[i] = verts[i]
+	}
 	wgpu.BufferUnmap(ctx.vertex_buffer)
 
 	ctx.render_pipeline_layout = wgpu.DeviceCreatePipelineLayout(
@@ -309,8 +312,9 @@ begin_render :: proc() {
 	)
 	
 	wgpu.RenderPassEncoderSetPipeline(ctx.render_pass, ctx.render_pipeline)
+	
 	wgpu.RenderPassEncoderSetVertexBuffer(ctx.render_pass, 0, ctx.vertex_buffer, 0, wgpu.WHOLE_SIZE)
-	wgpu.RenderPassEncoderDraw(ctx.render_pass, 3, 1, 0, 0)
+	wgpu.RenderPassEncoderDraw(ctx.render_pass, cast(u32) len(VERTICES), 1, 0, 0)
 }
 
 //
