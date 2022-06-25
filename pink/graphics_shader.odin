@@ -1,8 +1,8 @@
-//+private
-package pink_graphics
+package pink
 
 import "wgpu/wgpu"
 
+@(private)
 create_wgsl_shader_module :: proc(device: wgpu.Device, source: []u8) -> wgpu.ShaderModule {
 	wgsl_descriptor := wgpu.ShaderModuleWGSLDescriptor{
 		chain = wgpu.ChainedStruct{

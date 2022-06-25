@@ -4,14 +4,16 @@ import "core:mem"
 import "core:fmt"
 import "pink"
 
-on_load :: proc() {
-}
+Game :: struct {}
 
-on_update :: proc(dt: f64) {
-}
+game: Game
 
-on_draw :: proc() {
+on_load :: proc() {}
+on_update :: proc() {
 }
+on_fixed_update :: proc() {
+}
+on_draw :: proc() {}
 
 main :: proc() {
 	tracker: mem.Tracking_Allocator
@@ -25,12 +27,19 @@ main :: proc() {
 		}
 	}
 
-	pink.init()
-	pink.set_window_title("Test Window")
-	pink.set_target_fps(60)
-
 	pink.on_load(on_load)
 	pink.on_update(on_update)
+	pink.on_fixed_update(on_fixed_update)
 	
-	pink.run()
+	pink.configure(pink.Config{})
+	pink.go()
+
+	// pink.init()
+	// pink.set_window_title("Test Window")
+	// pink.set_target_fps(60)
+
+	// pink.on_load(on_load)
+	// pink.on_update(on_update)
+	
+	// pink.run()
 }
