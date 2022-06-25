@@ -15,7 +15,7 @@ ATTRIBUTE_COUNT :: 3
 
 QUAD_INDICES : [6]c.uint16_t = {
 	0, 1, 2,
-	1, 2, 3,
+	1, 3, 2,
 }
 
 vertex_buffer_layout :: proc() -> wgpu.VertexBufferLayout {
@@ -47,23 +47,27 @@ vertex_buffer_layout :: proc() -> wgpu.VertexBufferLayout {
 	return buffer_layout
 }
 
-renderer_poc_vertices :: proc() -> [3]Vertex {
-	return [3]Vertex{
+renderer_poc_vertices :: proc() -> [4]Vertex {
+	return [4]Vertex{
 		Vertex{
-			position = {0.0, 0.5},
+			position = {-0.5, 0.5},
 			color = {1.0, 0.0, 0.0, 1.0},
 			texture_coord = {0.0, 0.0},
 		},
 		Vertex{
-			position = {-0.5, -0.5},
+			position = {0.5, 0.5},
 			color = {0.0, 1.0, 0.0, 1.0},
 			texture_coord = {0.0, 0.0},
 		},
 		Vertex{
-			position = {0.5, -0.5},
+			position = {-0.5, -0.5},
 			color = {0.0, 0.0, 1.0, 1.0},
+			texture_coord = {0.0, 0.0},
+		},
+		Vertex{
+			position = {0.5, -0.5},
+			color = {1.0, 1.0, 1.0, 0.0},
 			texture_coord = {0.0, 0.0},
 		},
 	}
 }
-

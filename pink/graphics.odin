@@ -253,7 +253,7 @@ graphics_init :: proc(window: ^sdl.Window) {
 			primitive = wgpu.PrimitiveState{
 				topology = .TriangleList,
 				stripIndexFormat = .Undefined,
-				frontFace = .CCW,
+				frontFace = .CW,
 				cullMode = .Back,
 			},
 			multisample = wgpu.MultisampleState{
@@ -320,6 +320,15 @@ graphics_gen_vertex_buffer:: proc() {
 		},
 	)
 	
+	graphics_state.index_buffer = wgpu.DeviceCreateBuffer(
+		graphics_state.device,
+		&wgpu.BufferDescriptor{
+			usage = {.Index},
+			size = cast(c.uint64_t) (size_of(c.uint16_t) * len(QUAD_INDICES)),
+			mappedAtCreation = true,
+		},
+	)
+	
 	range := cast([^]Vertex) wgpu.BufferGetMappedRange(
 		graphics_state.vertex_buffer,
 		0,
@@ -329,6 +338,16 @@ graphics_gen_vertex_buffer:: proc() {
 		range[i] = vertices[i]
 	}
 	wgpu.BufferUnmap(graphics_state.vertex_buffer)
+	
+	index_range := cast([^]c.uint16_t) wgpu.BufferGetMappedRange(
+		graphics_state.index_buffer,
+		0,
+		cast(c.size_t) (size_of(c.uint16_t) * len(QUAD_INDICES)),
+	)
+	for i := 0; i < len(QUAD_INDICES); i += 1 {
+		index_range[i] = QUAD_INDICES[i]
+	}
+	wgpu.BufferUnmap(graphics_state.index_buffer)
 }
 
 // Finishes collecting draw commands, generates the vertex buffer for this
@@ -371,10 +390,24 @@ graphics_render :: proc() {
 		0,
 		wgpu.WHOLE_SIZE,
 	)
+	wgpu.RenderPassEncoderSetIndexBuffer(
+		render_pass,
+		graphics_state.index_buffer,
+		.Uint16,
+		0,
+		wgpu.WHOLE_SIZE,
+	)
 
 	// BEGIN DRAW CALLS
 	
-	wgpu.RenderPassEncoderDraw(render_pass, 3, 1, 0, 0)
+	wgpu.RenderPassEncoderDrawIndexed(
+		render_pass,
+		len(QUAD_INDICES),
+		1,
+		0,
+		0,
+		0,
+	)
 	
 	// END DRAW CALLS
 
