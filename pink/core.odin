@@ -286,7 +286,7 @@ window_update :: proc() {
 	
 	if size_changed || maximized {
 		sdl.GetWindowSize(window_state.handle, &window_state.width, &window_state.height)
-		graphics_rebuild_swap_chain()
+		render_rebuild_swap_chain()
 	}
 }
 
@@ -295,5 +295,5 @@ window_draw :: proc() {
 	debug_scope_push("draw"); defer debug_scope_pop()
 	runtime_call_callbacks(&runtime_callbacks.on_draw)
 
-	graphics_render()
+	render_exec()
 }

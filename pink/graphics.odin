@@ -3,27 +3,9 @@ package pink
 
 import "core:c"
 import "core:fmt"
+import "core:mem"
 import sdl "vendor:sdl2"
 import "wgpu/wgpu"
-
-Primitive_Type :: enum u8 {
-	Quad,
-}
-
-Primitive :: struct {
-	type: Primitive_Type,
-	data: Coord,
-}
-
-// Holds draw commands.
-Draw_Command :: struct {
-	primitive: Primitive,
-	transform: Transform,
-}
-
-// Holds commands applied to the renderer context--transformations, clears, etc.
-Context_Command :: struct {
-}
 
 graphics_state: struct {
 	destroying: bool,
@@ -31,20 +13,6 @@ graphics_state: struct {
 	surface: wgpu.Surface,
 	adapter: wgpu.Adapter,
 	device: wgpu.Device,
-
-	swap_chain: wgpu.SwapChain,
-	texture_format: wgpu.TextureFormat,
-	render_pipeline: wgpu.RenderPipeline,
-
-	command_encoder: wgpu.CommandEncoder,
-	render_pass_encoder: wgpu.RenderPassEncoder,
-
-	vertex_buffer_size: u64,
-	vertex_buffer: wgpu.Buffer,
-	index_buffer_size: u64,
-	index_buffer: wgpu.Buffer,
-
-	draw_stack: [dynamic]Draw_Command,
 }
 
 // WGPU callbacks
@@ -179,246 +147,14 @@ graphics_init :: proc(window: ^sdl.Window) {
 		device_lost_callback,
 		nil,
 	)
-
-	graphics_state.texture_format = wgpu.SurfaceGetPreferredFormat(
-		graphics_state.surface,
-		graphics_state.adapter,
-	)
 	
-	core_shader := create_wgsl_shader_module(
-		graphics_state.device,
-		#load("shader.wgsl"),
-	)
-	
-	vertex_attributes := [ATTRIBUTE_COUNT]wgpu.VertexAttribute{
-		wgpu.VertexAttribute{
-			offset = cast(c.uint64_t) offset_of(Vertex, position),
-			shaderLocation = 0,
-			format = .Float32x2,
-		},
-		wgpu.VertexAttribute{
-			offset = cast(c.uint64_t) offset_of(Vertex, color),
-			shaderLocation = 1,
-			format = .Float32x4,
-		},
-		wgpu.VertexAttribute{
-			offset = cast(c.uint64_t) offset_of(Vertex, texture_coord),
-			shaderLocation = 2,
-			format = .Float32x2,
-		},
-	}
-
-	vertex_buffer_layout := wgpu.VertexBufferLayout{
-		arrayStride = cast(c.uint64_t) size_of(Vertex),
-		stepMode = .Vertex,
-		attributeCount = ATTRIBUTE_COUNT,
-		attributes = cast([^]wgpu.VertexAttribute) &vertex_attributes,
-	}
-
-	graphics_state.render_pipeline = wgpu.DeviceCreateRenderPipeline(
-		graphics_state.device,
-		&wgpu.RenderPipelineDescriptor{
-			label = "Render pipeline",
-			layout = wgpu.DeviceCreatePipelineLayout(
-				graphics_state.device,
-				&wgpu.PipelineLayoutDescriptor{},
-			),
-			vertex = wgpu.VertexState{
-				module = core_shader,
-				entryPoint = "vertex_main",
-				bufferCount = 1,
-				buffers = &vertex_buffer_layout,
-			},
-			fragment = &wgpu.FragmentState{
-				module = core_shader,
-				entryPoint = "fragment_main",
-				targetCount = 1,
-				targets = &wgpu.ColorTargetState{
-					format = graphics_state.texture_format,
-					blend = &wgpu.BlendState{
-						color = wgpu.BlendComponent{
-							srcFactor = .One,
-							dstFactor = .Zero,
-							operation = .Add,
-						},
-						alpha = wgpu.BlendComponent{
-							srcFactor = .One,
-							dstFactor = .Zero,
-							operation = .Add,
-						},
-					},
-					writeMask = wgpu.ColorWriteMaskFlagsAll,
-				},
-			},
-			primitive = wgpu.PrimitiveState{
-				topology = .TriangleList,
-				stripIndexFormat = .Undefined,
-				frontFace = .CW,
-				cullMode = .Back,
-			},
-			multisample = wgpu.MultisampleState{
-				count = 1,
-				mask = wgpu.MultisampleStateMaskMax,
-			},
-		},
-	)
-	
-	graphics_rebuild_swap_chain()
-}
-
-graphics_rebuild_swap_chain :: proc() {
-	fmt.println("Rebuilding swap chain")
-	graphics_state.swap_chain = wgpu.DeviceCreateSwapChain(
-		graphics_state.device,
-		graphics_state.surface,
-		&wgpu.SwapChainDescriptor{
-			usage = {.RenderAttachment},
-			format = graphics_state.texture_format,
-			width = cast(c.uint32_t) window_state.width,
-			height = cast(c.uint32_t) window_state.height,
-			presentMode = .Fifo,
-		},
-	)
+	render_init()
 }
 
 graphics_destroy :: proc() {
 	graphics_state.destroying = true
-	delete(graphics_state.draw_stack)
-	if graphics_state.vertex_buffer != nil {
-		wgpu.BufferDestroy(graphics_state.vertex_buffer)
-	}
-	if graphics_state.index_buffer != nil {
-		wgpu.BufferDestroy(graphics_state.index_buffer)
-	}
+	render_destroy()
 	if graphics_state.device != nil {
 		wgpu.DeviceDestroy(graphics_state.device)
 	}
-}
-
-// Submits a draw command to the current draw stack.
-graphics_submit_draw_command :: proc(command: Draw_Command) {
-	append(&graphics_state.draw_stack, command)
-}
-
-// Generates the renderer's vertex buffer from the current draw command queue.
-graphics_gen_vertex_buffer:: proc() {
-	// until renderer is actually written, we only want to generate the VB once
-	@(static) dbg_already_gen := false
-	
-	if dbg_already_gen do return
-	dbg_already_gen = true
-	
-	fmt.println("Generating POC vertex buffer")
-	
-	vertices := renderer_poc_vertices()
-	graphics_state.vertex_buffer = wgpu.DeviceCreateBuffer(
-		graphics_state.device,
-		&wgpu.BufferDescriptor{
-			usage = {.Vertex},
-			size = cast(c.uint64_t) (size_of(Vertex) * len(vertices)),
-			mappedAtCreation = true,
-		},
-	)
-	
-	graphics_state.index_buffer = wgpu.DeviceCreateBuffer(
-		graphics_state.device,
-		&wgpu.BufferDescriptor{
-			usage = {.Index},
-			size = cast(c.uint64_t) (size_of(c.uint16_t) * len(QUAD_INDICES)),
-			mappedAtCreation = true,
-		},
-	)
-	
-	range := cast([^]Vertex) wgpu.BufferGetMappedRange(
-		graphics_state.vertex_buffer,
-		0,
-		cast(c.size_t) (size_of(Vertex) * len(vertices)),
-	)
-	for i := 0; i < len(vertices); i += 1 {
-		range[i] = vertices[i]
-	}
-	wgpu.BufferUnmap(graphics_state.vertex_buffer)
-	
-	index_range := cast([^]c.uint16_t) wgpu.BufferGetMappedRange(
-		graphics_state.index_buffer,
-		0,
-		cast(c.size_t) (size_of(c.uint16_t) * len(QUAD_INDICES)),
-	)
-	for i := 0; i < len(QUAD_INDICES); i += 1 {
-		index_range[i] = QUAD_INDICES[i]
-	}
-	wgpu.BufferUnmap(graphics_state.index_buffer)
-}
-
-// Finishes collecting draw commands, generates the vertex buffer for this
-// frame, and renders it on the GPU. Called once per frame.
-graphics_render :: proc() {
-	graphics_gen_vertex_buffer()
-	
-	next_texture := wgpu.SwapChainGetCurrentTextureView(graphics_state.swap_chain)
-	
-	if next_texture == nil {
-		panic("Could not acquire next swap chain texture")
-	}
-	command_encoder := wgpu.DeviceCreateCommandEncoder(
-		graphics_state.device,
-		&wgpu.CommandEncoderDescriptor{},
-	)
-
-	render_pass := wgpu.CommandEncoderBeginRenderPass(
-		command_encoder,
-		&wgpu.RenderPassDescriptor{
-			label = "Render pass",
-			colorAttachments = &wgpu.RenderPassColorAttachment{
-				view = next_texture,
-				loadOp = .Clear,
-				storeOp = .Store,
-				clearValue = wgpu.Color{0.0, 0.0, 0.0, 1.0},
-			},
-			colorAttachmentCount = 1,
-		},
-	)
-
-	wgpu.RenderPassEncoderSetPipeline(
-		render_pass,
-		graphics_state.render_pipeline,
-	)
-	wgpu.RenderPassEncoderSetVertexBuffer(
-		render_pass,
-		0,
-		graphics_state.vertex_buffer,
-		0,
-		wgpu.WHOLE_SIZE,
-	)
-	wgpu.RenderPassEncoderSetIndexBuffer(
-		render_pass,
-		graphics_state.index_buffer,
-		.Uint16,
-		0,
-		wgpu.WHOLE_SIZE,
-	)
-
-	// BEGIN DRAW CALLS
-	
-	wgpu.RenderPassEncoderDrawIndexed(
-		render_pass,
-		len(QUAD_INDICES),
-		1,
-		0,
-		0,
-		0,
-	)
-	
-	// END DRAW CALLS
-
-	wgpu.RenderPassEncoderEnd(render_pass)
-
-	queue := wgpu.DeviceGetQueue(graphics_state.device)
-	cmd_buffer := wgpu.CommandEncoderFinish(
-		command_encoder,
-		&wgpu.CommandBufferDescriptor{},
-	)
-	
-	wgpu.QueueSubmit(queue, 1, &cmd_buffer)
-	wgpu.SwapChainPresent(graphics_state.swap_chain)
 }
