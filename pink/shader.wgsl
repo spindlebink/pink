@@ -1,6 +1,7 @@
 struct VertexInput {
     @location(0) position: vec2<f32>,
 };
+
 struct InstanceInput {
     @location(1) translation: vec2<f32>,
     @location(2) scale: vec2<f32>,

@@ -12,6 +12,7 @@ graphics_set_color_rgba :: proc(r, g, b: f32, a: f32 = 1.0) {
 	graphics_state.draw_state.color[0] = r
 	graphics_state.draw_state.color[1] = g
 	graphics_state.draw_state.color[2] = b
+	graphics_state.draw_state.color[3] = a
 }
 
 graphics_set_color :: proc(color: Color) {
