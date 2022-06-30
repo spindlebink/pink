@@ -13,13 +13,18 @@ struct VertexOutput {
     @location(0) modulation: vec4<f32>,
 };
 
+// http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html
+fn linear_to_gamma(color: vec3<f32>) -> vec3<f32> {
+    return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
+};
+
 @stage(vertex)
 fn vertex_main(
     vertex: VertexInput,
     instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.modulation = instance.modulation;
+    out.modulation = vec4<f32>(linear_to_gamma(instance.modulation.rgb), instance.modulation.a);
     out.position = vec4<f32>(
         (vertex.position * instance.scale) + instance.translation,
         1.0,

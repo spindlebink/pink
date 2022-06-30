@@ -1,19 +1,16 @@
-package main;
+package main
 
-import "core:mem"
 import "core:fmt"
+import "core:math"
+import "core:math/rand"
+import "core:mem"
+import "core:time"
 import "pink"
 
-Game :: struct {}
-
-game: Game
-
-on_load :: proc() {}
-on_update :: proc() {
+on_draw :: proc() {
+	pink.graphics_set_color_rgba(0.8392, 0.3922, 0.5176)
+	pink.graphics_draw_rectangle(10, 10, f32(pink.window_width() - 20), f32(pink.window_height() - 20))
 }
-on_fixed_update :: proc() {
-}
-on_draw :: proc() {}
 
 main :: proc() {
 	tracker: mem.Tracking_Allocator
@@ -27,19 +24,7 @@ main :: proc() {
 		}
 	}
 
-	pink.on_load(on_load)
-	pink.on_update(on_update)
-	pink.on_fixed_update(on_fixed_update)
-	
-	pink.configure(pink.Config{})
+	pink.on_draw(on_draw)
+
 	pink.go()
-
-	// pink.init()
-	// pink.set_window_title("Test Window")
-	// pink.set_target_fps(60)
-
-	// pink.on_load(on_load)
-	// pink.on_update(on_update)
-	
-	// pink.run()
 }
