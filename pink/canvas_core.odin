@@ -12,6 +12,9 @@ canvas_state := Canvas_State{
 		usage_flags = {.Vertex, .CopyDst},
 	},
 	prim_vert_data = PRIMITIVE_VERTS,
+	draw_state = Canvas_Draw_State{
+		color = {1.0, 1.0, 1.0, 1.0},
+	},
 }
 
 // ************************************************************************** //
@@ -47,6 +50,19 @@ Canvas_Draw_Item :: struct {
 	count: int,
 }
 
+Canvas_Draw_State :: struct {
+	color: Color,
+}
+
+Canvas_Draw_State_Memo :: struct {
+	mode: enum {
+		Transform,
+		Style,
+		All,
+	},
+	state: Canvas_Draw_State,
+}
+
 Canvas_State :: struct {
 	pipeline: wgpu.RenderPipeline,
 	prim_verts: Render_Buffer,
@@ -56,6 +72,8 @@ Canvas_State :: struct {
 	
 	error: Canvas_Error,
 	draw_items: [dynamic]Canvas_Draw_Item,
+	draw_state: Canvas_Draw_State,
+	draw_state_stack: [dynamic]Canvas_Draw_State_Memo,
 }
 
 // ************************************************************************** //
@@ -67,6 +85,27 @@ canvas_init :: proc() -> bool {
 	using canvas_state
 	
 	return true
+}
+
+canvas_append_draw_item :: proc(item_type: Canvas_Draw_Item_Type, count := 1) {
+	using canvas_state
+	
+	if len(draw_items) > 0 {
+		top := &draw_items[len(draw_items) - 1]
+		if top.type == item_type {
+			top.count += count
+		} else {
+			append(&draw_items, Canvas_Draw_Item{
+				type = item_type,
+				count = count,
+			})
+		}
+	} else {
+		append(&draw_items, Canvas_Draw_Item{
+			type = item_type,
+			count = count,
+		})
+	}
 }
 
 // Recreates the canvas render pipeline.
@@ -130,7 +169,7 @@ canvas_recreate_pipeline :: proc() {
 	// Pipeline
 	
 	pipeline = wgpu.DeviceCreateRenderPipeline(
-		render_state.device,
+		render_device(),
 		&wgpu.RenderPipelineDescriptor{
 			label = "Canvas Render Pipeline",
 			layout = wgpu.DeviceCreatePipelineLayout(
@@ -148,7 +187,7 @@ canvas_recreate_pipeline :: proc() {
 				entryPoint = "fragment_main",
 				targetCount = 1,
 				targets = &wgpu.ColorTargetState{
-					format = render_state.texture_format,
+					format = render_texture_format(),
 					blend = &wgpu.BlendState{
 						color = wgpu.BlendComponent{
 							srcFactor = .One,
@@ -180,12 +219,85 @@ canvas_recreate_pipeline :: proc() {
 
 // Renders all queued draw commands.
 canvas_render :: proc() {
-	if render_context_fresh() do canvas_recreate_pipeline()
+	using canvas_state
+
+	// Generate buffers
+	
+	if render_context_fresh() {
+		canvas_recreate_pipeline()
+
+		// Create the primitive vertex buffer only when the context is new
+		render_buffer_ensure_size(
+			&prim_verts,
+			len(prim_vert_data) * size_of(Canvas_Vertex),
+		)
+
+		wgpu.QueueWriteBuffer(
+			render_queue(),
+			prim_verts.handle,
+			0,
+			raw_data(prim_vert_data),
+			len(prim_vert_data) * size_of(Canvas_Vertex),
+		)
+	}
+	
+	if len(prim_inst_data) > 0 {
+		data_size := len(prim_inst_data) * size_of(Canvas_Primitive_Instance)
+		render_buffer_ensure_size(&prim_insts, data_size)
+
+		wgpu.QueueWriteBuffer(
+			render_queue(),
+			prim_insts.handle,
+			0,
+			raw_data(prim_inst_data),
+			c.size_t(data_size),
+		)
+
+		render_pass := render_render_pass_encoder()
+	
+		wgpu.RenderPassEncoderSetPipeline(render_pass, pipeline)
+		wgpu.RenderPassEncoderSetVertexBuffer(
+			render_pass,
+			0,
+			prim_verts.handle,
+			0,
+			wgpu.WHOLE_SIZE,
+		)
+		wgpu.RenderPassEncoderSetVertexBuffer(
+			render_pass,
+			1,
+			prim_insts.handle,
+			0,
+			wgpu.WHOLE_SIZE,
+		)
+	
+		current_inst := u32(0)
+		for i := 0; i < len(draw_items); i += 1 {
+			item := draw_items[i]
+			switch item.type {
+			case .Rect_Primitive:
+				wgpu.RenderPassEncoderDraw(
+					render_pass,
+					6, // vertices per rect
+					c.uint32_t(item.count),
+					0,
+					c.uint32_t(current_inst),
+				)
+			}
+		}
+
+		clear(&prim_inst_data)
+		clear(&draw_items)
+	}
 }
 
+// Shuts down the canvas system.
 canvas_exit :: proc() -> bool {
 	using canvas_state
 	
+	delete(prim_inst_data)
+	delete(draw_items)
+	delete(draw_state_stack)
 	if prim_verts.handle != nil do wgpu.BufferDestroy(prim_verts.handle)
 	if prim_insts.handle != nil do wgpu.BufferDestroy(prim_insts.handle)
 	

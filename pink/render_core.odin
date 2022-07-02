@@ -158,6 +158,12 @@ render_shader_module_create_wgsl :: proc(source: []u8) -> wgpu.ShaderModule {
 	return wgpu.DeviceCreateShaderModule(render_state.device, &descriptor)
 }
 
+// Converts window coordinates to GPU device coordinates
+render_pos_from_window_pos :: proc(x, y: f32) -> (ren_x, ren_y: f32) {
+	win_w, win_h := f32(runtime_window_width()), f32(runtime_window_height())
+	return x / (win_w * 0.5) - 1.0, 1.0 - y / (win_h * 0.5)
+}
+
 // Initializes the WGPU context.
 render_init :: proc() -> bool {
 	using render_state
@@ -338,14 +344,17 @@ render_end_frame :: proc() -> bool {
 }
 
 // Returns whether the render context was recreated since last frame.
-render_context_fresh :: proc() -> bool {
-	return render_state.context_fresh
-}
-
+render_context_fresh :: proc() -> bool { return render_state.context_fresh }
+// Returns the renderer WGPU device.
+render_device :: proc() -> wgpu.Device { return render_state.device }
+// Returns the current renderer queue.
+render_queue :: proc() -> wgpu.Queue { return render_state.queue }
+// Returns the current render pass encoder.
+render_render_pass_encoder :: proc() -> wgpu.RenderPassEncoder { return render_state.render_pass_encoder }
+// Returns the device's preferred texture format.
+render_texture_format :: proc() -> wgpu.TextureFormat { return render_state.texture_format }
 // Marks the swap chain as needing to be recreated next frame.
-render_invalidate_swap_chain :: proc() {
-	render_state.swap_chain_invalid = true
-}
+render_invalidate_swap_chain :: proc() { render_state.swap_chain_invalid = true }
 
 // Cleans up renderer members that need cleaning up. The render context should
 // be assumed to be unrecoverable after this call.

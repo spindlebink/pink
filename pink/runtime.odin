@@ -95,6 +95,7 @@ runtime_set_load_proc :: proc(callback: proc()) { runtime_state.on_load = callba
 runtime_set_ready_proc :: proc(callback: proc()) { runtime_state.on_ready = callback }
 runtime_set_update_proc :: proc(callback: proc(f64)) { runtime_state.on_update = callback }
 runtime_set_fixed_update_proc :: proc(callback: proc(f64)) { runtime_state.on_fixed_update = callback }
+runtime_set_draw_proc :: proc(callback: proc()) { runtime_state.on_draw = callback }
 runtime_set_exit_proc :: proc(callback: proc()) { runtime_state.on_exit = callback }
 
 runtime_window_width :: proc() -> i32 { return runtime_state.window.width }
