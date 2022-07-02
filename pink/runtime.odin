@@ -81,6 +81,8 @@ runtime_configure :: proc(
 	} else {
 		clock.fixed_timestep_ms = -1.0
 	}
+	
+	configured = true
 }
 
 // One-liners
@@ -108,6 +110,7 @@ runtime_go :: proc() -> bool {
 	}
 	
 	running = true
+	if !configured do runtime_configure()
 	
 	/*
 	
@@ -165,6 +168,8 @@ runtime_go :: proc() -> bool {
 	Run
 	
 	*/
+
+	clock.now = time.now()
 
 	for !should_quit {
 		new_time := time.now()
@@ -226,7 +231,10 @@ runtime_go :: proc() -> bool {
 		clock.fixed_timestep_alpha = clock.accumulator_ms / clock.timestep_ms
 	
 		if on_draw != nil do on_draw()
+
 		render_begin_frame()
+		
+		// Push canvas stuff to GPU
 		
 		render_end_frame()
 	}

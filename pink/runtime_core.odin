@@ -29,6 +29,7 @@ Runtime_State :: struct {
 	
 	running: bool,
 	should_quit: bool,
+	configured: bool,
 	config: Runtime_Config,
 	error: Runtime_Error,
 
