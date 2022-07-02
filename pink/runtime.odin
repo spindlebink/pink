@@ -3,248 +3,249 @@ package pink
 import "core:time"
 import sdl "vendor:sdl2"
 
-// Sets the program's load callback.
-on_load :: proc(callback: proc()) {
-	program_state.on_load = callback
+// ************************************************************************** //
+// Type Definitions & Constants
+// ************************************************************************** //
+
+Runtime_Error_Type :: enum {
+	None,
+	Bad_Initialization,
+	Exit_Error,
 }
 
-// Sets the program's ready callback.
-on_ready :: proc(callback: proc()) {
-	program_state.on_ready = callback
+Runtime_Error :: Error(Runtime_Error_Type)
+
+ERROR_DUPLICATE_GO_CALLS :: "Duplicate calls to runtime_go()"
+ERROR_SDL_INIT_FAILED :: "Failed to initialize SDL"
+ERROR_WINDOW_CREATION_FAILED :: "Failed to create window"
+ERROR_RENDER_INIT_FAILED :: "Failed to initialize renderer"
+ERROR_RENDER_EXIT_FAILED :: "Failed to shut down renderer"
+
+// ************************************************************************** //
+// Procedures
+// ************************************************************************** //
+
+// Returns `true` if the runtime system has encountered no errors or if any
+// errors have been marked as handled.
+runtime_ok :: proc() -> bool {
+	return runtime_state.error.type == .None
 }
 
-// Sets the program's update callback.
-on_update :: proc(callback: proc(timestep: f64)) {
-	program_state.on_update = callback
+// Returns any error the runtime system last experienced.
+runtime_error :: proc() -> Runtime_Error {
+	return runtime_state.error
 }
 
-// Sets the program's fixed-update callback.
-on_fixed_update :: proc(callback: proc(timestep: f64)) {
-	program_state.on_fixed_update = callback
+// Marks any error the runtime system has received as handled.
+runtime_clear_error :: proc() {
+	runtime_state.error.type = .None
 }
 
-// Sets the program's draw callback.
-on_draw :: proc(callback: proc()) {
-	program_state.on_draw = callback
-}
+// Configures the program. Call before calling `runtime_go()`.
+runtime_configure :: proc(
+	window_title := runtime_state.config.window_title,
+	window_width := runtime_state.config.window_width,
+	window_height := runtime_state.config.window_height,
+	fixed_framerate := runtime_state.config.fixed_framerate,
+	framerate_cap := runtime_state.config.framerate_cap,
+	vsync_enabled := runtime_state.config.vsync_enabled,
+) {
+	using runtime_state
+	
+	// ensure we can modify the arguments to set sane bounds
+	window_width := window_width
+	window_height := window_height
+	fixed_framerate := fixed_framerate
+	framerate_cap := framerate_cap
 
-// Sets the program's exit callback.
-on_exit :: proc(callback: proc()) {
-	program_state.on_exit = callback
-}
-
-// Returns current timestep milliseconds. You can scale game logic by this
-// amount to alleviate inconsistencies due to frame drops. Will return a fixed
-// timestep if called during a `fixed_update` callback and a variable timestep
-// if called during an `update` callback.
-timestep_ms :: proc() -> f64 {
-	return runtime_state.timestep_ms
-}
-
-// Returns current variable timestep milliseconds i.e. the frame delta. You can
-// scale game logic by this amount to alleviate inconsistencies due to frame
-// drops.
-timestep_variable_ms :: proc() -> f64 {
-	return runtime_state.variable_timestep_ms
-}
-
-// Returns current fixed timestep milliseconds i.e. the fixed frame delta.
-timestep_fixed_ms :: proc() -> f64 {
-	return runtime_state.fixed_timestep_ms
-}
-
-// Returns current window width.
-window_width :: proc() -> uint {
-	return uint(window_state.width)
-}
-
-// Returns current window height.
-window_height :: proc() -> uint {
-	return uint(window_state.height)
-}
-
-// Configures Pink from a given `Config`.
-configure :: proc(config: Config) {
-	config := config
-	config_fill_defaults(&config)
+	if window_width < 1 do window_width = 1
+	if window_height < 1 do window_height = 1
+	if fixed_framerate < 0.0 do fixed_framerate = 0.0
+	if framerate_cap <= 0.0 do framerate_cap = 0.0
+	
+	config.window_title = window_title
+	config.window_width = window_width
+	config.window_height = window_height
+	config.fixed_framerate = fixed_framerate
+	config.framerate_cap = framerate_cap
+	config.vsync_enabled = vsync_enabled
 	
 	if config.framerate_cap > 0.0 {
-		runtime_state.frame_time_cap_ms = 1000.0 / config.framerate_cap
+		clock.frame_time_cap_ms = 1000.0 / config.framerate_cap
 	} else {
-		runtime_state.frame_time_cap_ms = -1.0
+		clock.frame_time_cap_ms = -1.0
 	}
-
-	if config.framerate_fixed > 0.0 {
-		runtime_state.fixed_timestep_ms = 1000.0 / config.framerate_fixed
+	
+	if config.fixed_framerate > 0.0 {
+		clock.fixed_timestep_ms = 1000.0 / config.fixed_framerate
 	} else {
-		runtime_state.fixed_timestep_ms = -1.0
+		clock.fixed_timestep_ms = -1.0
 	}
-
-	window_state.title = config.window_title
-	window_state.width = int(config.window_width)
-	window_state.height = int(config.window_height)
-
-	program_state.configured = true
 }
 
-// Loads, runs, and exits the game in sequence.
-go :: proc() {
-	if !program_state.configured do configure(DEFAULT_CONFIG)
+// One-liners
 
-	// ************************************************************************ //
-	// Load
-	// ************************************************************************ //
+runtime_set_load_proc :: proc(callback: proc()) { runtime_state.on_load = callback }
+runtime_set_ready_proc :: proc(callback: proc()) { runtime_state.on_ready = callback }
+runtime_set_update_proc :: proc(callback: proc(f64)) { runtime_state.on_update = callback }
+runtime_set_fixed_update_proc :: proc(callback: proc(f64)) { runtime_state.on_fixed_update = callback }
+runtime_set_exit_proc :: proc(callback: proc()) { runtime_state.on_exit = callback }
 
-	debug_scope_push("load")
-	debug_assert_fatal(!program_state.loaded, "duplicate load attempts")
+runtime_window_width :: proc() -> i32 { return runtime_state.window.width }
+runtime_window_height :: proc() -> i32 { return runtime_state.window.height }
+runtime_window_size :: proc() -> (width: i32, height: i32) { return runtime_state.window.width, runtime_state.window.height }
 
-	init_flags := sdl.InitFlags{.VIDEO}
-	init_result := sdl.Init(init_flags)
-	debug_assert_fatal(init_result >= 0, "could not initialize SDL")
+// Runs the program.
+runtime_go :: proc() -> bool {
+	using runtime_state
 	
-	// Initialize window
-	window_state.flags = sdl.WindowFlags{.SHOWN, .RESIZABLE}
-	when ODIN_OS == .Linux {
-		window_state.flags += {.VULKAN}
+	if running {
+		error = Runtime_Error{
+			type = .Bad_Initialization,
+			message = ERROR_DUPLICATE_GO_CALLS,
+		}
+		return false
+	}
+	
+	running = true
+	
+	/*
+	
+	Load
+	
+	*/
+	
+	initialized := sdl.Init({.VIDEO}); defer sdl.Quit()
+	if initialized < 0 {
+		error = Runtime_Error{
+			type = .Bad_Initialization,
+			message = ERROR_SDL_INIT_FAILED,
+		}
+		return false
 	}
 
-	window_state.handle = sdl.CreateWindow(
-		cast(cstring) raw_data(window_state.title),
+	window.flags = sdl.WindowFlags{.RESIZABLE}
+	when ODIN_OS == .Linux {
+		window.flags += {.VULKAN}
+	}
+
+	window.handle = sdl.CreateWindow(
+		cast(cstring) raw_data(config.window_title),
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
-		i32(window_state.width),
-		i32(window_state.height),
-		window_state.flags,
+		i32(config.window_width),
+		i32(config.window_height),
+		window.flags,
 	)
+	defer sdl.DestroyWindow(window.handle)
 
-	debug_assert_fatal(window_state.handle != nil, "could not create window")
+	if window.handle == nil {
+		error = Runtime_Error{
+			type = .Bad_Initialization,
+			message = ERROR_WINDOW_CREATION_FAILED,
+		}
+		return false
+	}
 	
-	graphics_load()
+	sdl.GetWindowSize(window.handle, &window.width, &window.height)
 
-	if program_state.on_load != nil do program_state.on_load()
-	if program_state.on_ready != nil do program_state.on_ready()
+	if !render_init() {
+		error = Runtime_Error{
+			type = .Bad_Initialization,
+			message = ERROR_RENDER_INIT_FAILED,
+		}
+		return false
+	}
 
-	debug_scope_pop() // load
+	if on_load != nil do on_load()
+	if on_ready != nil do on_ready()
 
-	// ************************************************************************ //
-	// Run
-	// ************************************************************************ //
-
-	debug_scope_push("run")
+	/*
 	
-	runtime_state.current_time = time.now()
-	runtime_state.accumulator_ms = 0.0
+	Run
+	
+	*/
 
-	for !program_state.should_quit {
+	for !should_quit {
 		new_time := time.now()
-		frame_time := time.diff(runtime_state.current_time, new_time)
-		timestep_ms := time.duration_milliseconds(frame_time)
-
-		// TODO: limit frame jump for dropped frames
-
-		runtime_state.current_time = new_time
-		runtime_state.accumulator_ms += timestep_ms
-		runtime_state.variable_timestep_ms = timestep_ms
-		runtime_state.timestep_ms = timestep_ms
-
-		//
+		frame_time := time.diff(clock.now, new_time)
+		
+		clock.timestep_ms = time.duration_milliseconds(frame_time)
+		clock.variable_timestep_ms = clock.timestep_ms
+		clock.accumulator_ms += clock.timestep_ms
+		clock.now = new_time
+		
 		// Process window events
-		//
-
-		{
-			size_changed, maximized := false, false
-			event: sdl.Event
-			for sdl.PollEvent(&event) != 0 {
-				#partial switch event.type {
-				case .QUIT:
-					program_state.should_quit = true
-				case .WINDOWEVENT:
-					#partial switch event.window.event {
-					case .SIZE_CHANGED:
-						size_changed = true
-					case .MINIMIZED:
-						window_state.minimized = true
-					case .RESTORED:
-						window_state.minimized = false
-						size_changed = true
-					case .MAXIMIZED:
-						maximized = true
-						size_changed = true
-					}
-				// TODO: input
+		size_changed, maximized := false, false
+		event: sdl.Event
+		for sdl.PollEvent(&event) != 0 {
+			#partial switch event.type {
+			case .QUIT:
+				should_quit = true
+			case .WINDOWEVENT:
+				#partial switch event.window.event {
+				case .SIZE_CHANGED:
+					size_changed = true
+				case .MINIMIZED:
+					window.minimized = true
+				case .RESTORED:
+					window.minimized = false
+					size_changed = true
+				case .MAXIMIZED:
+					maximized = true
+					size_changed = true
 				}
 			}
-			
-			if size_changed || maximized {
-				ww, wh: i32
-				sdl.GetWindowSize(window_state.handle, &ww, &wh)
-				window_state.width, window_state.height = int(ww), int(wh)
-				graphics_state.swap_chain_expired = true
-			}
 		}
-
-		//
-		// Call loop callbacks
-		//
-
-		{
-			// variable-rate update callback...
-			if program_state.on_update != nil do program_state.on_update(runtime_state.variable_timestep_ms)
 		
-			// ...and then all scheduled fixed updates
-			if runtime_state.fixed_timestep_ms > 0.0 {
-				runtime_state.timestep_ms = runtime_state.fixed_timestep_ms
-				for runtime_state.accumulator_ms > runtime_state.fixed_timestep_ms {
-					if program_state.on_fixed_update != nil do program_state.on_fixed_update(runtime_state.fixed_timestep_ms)
-					runtime_state.accumulator_ms -= runtime_state.fixed_timestep_ms
-				}
-			} else {
-				if program_state.on_fixed_update != nil do program_state.on_fixed_update(runtime_state.variable_timestep_ms)
-			}
+		if size_changed || maximized {
+			sdl.GetWindowSize(
+				window.handle,
+				&window.width,
+				&window.height,
+			)
+
+			render_invalidate_swap_chain()
+		}
 		
-			runtime_state.timestep_ms = timestep_ms
-			runtime_state.fixed_timestep_alpha = runtime_state.accumulator_ms / timestep_ms
-		}
-
-		//
-		// Render and sleep
-		//
-
-		{
-			debug_scope_push("draw")
-			
-			if program_state.on_draw != nil do program_state.on_draw()
-			graphics_frame_begin()
-			graphics_frame_render()
-			graphics_frame_end()
-
-			debug_scope_pop()
-			
-			if runtime_state.frame_time_cap_ms > 0.0 {
-				work := time.duration_milliseconds(time.since(runtime_state.current_time))
-				sleep_ms := runtime_state.frame_time_cap_ms - work
-				if sleep_ms > 0.0 {
-					sleep_ns := cast(i64) (sleep_ms * 1000.0 * 1000.0)
-					time.accurate_sleep(time.Duration(sleep_ns))
+		if on_update != nil do on_update(clock.timestep_ms)
+		
+		if clock.fixed_timestep_ms > 0.0 {
+			clock.timestep_ms = clock.fixed_timestep_ms
+			if on_fixed_update != nil {
+				for clock.accumulator_ms > clock.fixed_timestep_ms {
+					on_fixed_update(clock.fixed_timestep_ms)
+					clock.accumulator_ms -= clock.fixed_timestep_ms
 				}
 			}
+		} else {
+			if on_fixed_update != nil do on_fixed_update(clock.variable_timestep_ms)
 		}
-	} // loop
-
-	debug_scope_pop() // run
-
-	// ************************************************************************ //
-	// Exit
-	// ************************************************************************ //
-
-	debug_scope_push("exit")
+		
+		clock.timestep_ms = clock.variable_timestep_ms
+		clock.fixed_timestep_alpha = clock.accumulator_ms / clock.timestep_ms
 	
-	if program_state.on_exit != nil do program_state.on_exit()
-	graphics_exit()
-
-	sdl.DestroyWindow(window_state.handle)
-	sdl.Quit()
+		if on_draw != nil do on_draw()
+		render_begin_frame()
+		
+		render_end_frame()
+	}
 	
-	program_state.exited = true
-	debug_scope_pop()
+	/*
+	
+	Exit
+	
+	*/
+	
+	if on_exit != nil do on_exit()
+	
+	if !render_exit() {
+		error = Runtime_Error{
+			type = .Exit_Error,
+			message = ERROR_RENDER_EXIT_FAILED,
+		}
+		return false
+	}
+
+	return true
 }
