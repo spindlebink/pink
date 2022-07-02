@@ -10,6 +10,9 @@ import "pink"
 on_update :: proc(delta: f64) {
 }
 
+on_fixed_update :: proc(delta: f64) {
+}
+
 on_draw :: proc() {
 }
 
@@ -26,6 +29,8 @@ main :: proc() {
 	}
 
 	pink.runtime_set_update_proc(on_update)
+	pink.runtime_set_fixed_update_proc(on_fixed_update)
+	
 	if !pink.runtime_go() {
 		pink.error_report_fatal(pink.runtime_error())
 	}

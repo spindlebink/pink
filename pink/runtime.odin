@@ -9,8 +9,9 @@ import sdl "vendor:sdl2"
 
 Runtime_Error_Type :: enum {
 	None,
-	Bad_Initialization,
-	Exit_Error,
+	Init_Failed,
+	Render_Frame_Failed,
+	Exit_Failed,
 }
 
 Runtime_Error :: Error(Runtime_Error_Type)
@@ -20,6 +21,9 @@ ERROR_SDL_INIT_FAILED :: "Failed to initialize SDL"
 ERROR_WINDOW_CREATION_FAILED :: "Failed to create window"
 ERROR_RENDER_INIT_FAILED :: "Failed to initialize renderer"
 ERROR_RENDER_EXIT_FAILED :: "Failed to shut down renderer"
+ERROR_RENDER_FRAME_FAILED :: "Render error"
+ERROR_CANVAS_INIT_FAILED :: "Failed to initialize canvas"
+ERROR_CANVAS_EXIT_FAILED :: "Failed to shut down canvas"
 
 // ************************************************************************** //
 // Procedures
@@ -103,7 +107,7 @@ runtime_go :: proc() -> bool {
 	
 	if running {
 		error = Runtime_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_DUPLICATE_GO_CALLS,
 		}
 		return false
@@ -121,7 +125,7 @@ runtime_go :: proc() -> bool {
 	initialized := sdl.Init({.VIDEO}); defer sdl.Quit()
 	if initialized < 0 {
 		error = Runtime_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_SDL_INIT_FAILED,
 		}
 		return false
@@ -144,7 +148,7 @@ runtime_go :: proc() -> bool {
 
 	if window.handle == nil {
 		error = Runtime_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_WINDOW_CREATION_FAILED,
 		}
 		return false
@@ -154,8 +158,16 @@ runtime_go :: proc() -> bool {
 
 	if !render_init() {
 		error = Runtime_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_RENDER_INIT_FAILED,
+		}
+		return false
+	}
+	
+	if !canvas_init() {
+		error = Runtime_Error{
+			type = .Init_Failed,
+			message = ERROR_CANVAS_INIT_FAILED,
 		}
 		return false
 	}
@@ -232,11 +244,23 @@ runtime_go :: proc() -> bool {
 	
 		if on_draw != nil do on_draw()
 
-		render_begin_frame()
+		if !render_begin_frame() {
+			error = Runtime_Error{
+				type = .Render_Frame_Failed,
+				message = ERROR_RENDER_FRAME_FAILED,
+			}
+			break
+		}
 		
-		// Push canvas stuff to GPU
+		canvas_render()
 		
-		render_end_frame()
+		if !render_end_frame() {
+			error = Runtime_Error{
+				type = .Render_Frame_Failed,
+				message = ERROR_RENDER_FRAME_FAILED,
+			}
+			break
+		}
 	}
 	
 	/*
@@ -246,10 +270,18 @@ runtime_go :: proc() -> bool {
 	*/
 	
 	if on_exit != nil do on_exit()
+
+	if !canvas_exit() {
+		error = Runtime_Error{
+			type = .Exit_Failed,
+			message = ERROR_CANVAS_EXIT_FAILED,
+		}
+		return false
+	}
 	
 	if !render_exit() {
 		error = Runtime_Error{
-			type = .Exit_Error,
+			type = .Exit_Failed,
 			message = ERROR_RENDER_EXIT_FAILED,
 		}
 		return false

@@ -15,8 +15,9 @@ render_state := Render_State{
 
 Render_Error_Type :: enum {
 	None,
-	Bad_Initialization,
+	Init_Failed,
 	Uncaptured_WGPU_Error,
+	Frame_Begin_Failed,
 }
 
 Render_Error :: Error(Render_Error_Type)
@@ -25,6 +26,7 @@ ERROR_WINDOW_INFO_FAILED :: "Failed to collect window info"
 ERROR_WM_UNSUPPORTED :: "Unsupported window manager"
 ERROR_REQUEST_ADAPTER_FAILED :: "Failed to obtain GPU adapter"
 ERROR_REQUEST_DEVICE_FAILED :: "Failed to obtain GPU device"
+ERROR_GET_SWAP_CHAIN_TEXTURE_FAILED :: "Failed to get the next frame's texture view"
 
 Render_State :: struct {
 	surface: wgpu.Surface,
@@ -34,6 +36,7 @@ Render_State :: struct {
 	swap_chain: wgpu.SwapChain,
 	command_encoder: wgpu.CommandEncoder,
 	render_pass_encoder: wgpu.RenderPassEncoder,
+	current_texture_view: wgpu.TextureView,
 
 	error: Render_Error,
 	exiting: bool,
@@ -44,7 +47,7 @@ Render_State :: struct {
 }
 
 Render_Buffer :: struct {
-	buffer: wgpu.Buffer,
+	handle: wgpu.Buffer,
 	size: int,
 	usage_flags: wgpu.BufferUsageFlags,
 }
@@ -125,12 +128,42 @@ render_clear_error :: proc() {
 	render_state.error.type = .None
 }
 
+// Ensures that a `Render_Buffer` has a size of at least `size`, recreating it
+// if necessary.
+render_buffer_ensure_size :: proc(buffer: ^Render_Buffer, size: int) {
+	if size > buffer.size {
+		if buffer.handle != nil do wgpu.BufferDestroy(buffer.handle)
+		buffer.handle = wgpu.DeviceCreateBuffer(
+			render_state.device,
+			&wgpu.BufferDescriptor{
+				usage = buffer.usage_flags,
+				size = cast(c.uint64_t) size,
+			},
+		)
+		buffer.size = size
+	}
+}
+
+// Creates a WGPU shader module out of WGSL source.
+render_shader_module_create_wgsl :: proc(source: []u8) -> wgpu.ShaderModule {
+	wgsl_descriptor := wgpu.ShaderModuleWGSLDescriptor{
+		chain = wgpu.ChainedStruct{
+			sType = .ShaderModuleWGSLDescriptor,
+		},
+		code = cast(cstring) raw_data(source),
+	}
+	descriptor := wgpu.ShaderModuleDescriptor{
+		nextInChain = cast(^wgpu.ChainedStruct) &wgsl_descriptor,
+	}
+	return wgpu.DeviceCreateShaderModule(render_state.device, &descriptor)
+}
+
 // Initializes the WGPU context.
 render_init :: proc() -> bool {
 	using render_state
 
 	wgpu.SetLogCallback(log_callback)
-	wgpu.SetLogLevel(.Trace)
+	wgpu.SetLogLevel(.Warn)
 
 	when ODIN_OS == .Linux {
 		wm_info: sdl.SysWMinfo
@@ -138,7 +171,7 @@ render_init :: proc() -> bool {
 
 		if !sdl.GetWindowWMInfo(runtime_state.window.handle, &wm_info) {
 			error = Render_Error{
-				type = .Bad_Initialization,
+				type = .Init_Failed,
 				message = ERROR_WINDOW_INFO_FAILED,
 			}
 			return false
@@ -146,7 +179,7 @@ render_init :: proc() -> bool {
 
 		if wm_info.subsystem != .X11 {
 			error = Render_Error{
-				type = .Bad_Initialization,
+				type = .Init_Failed,
 				message = ERROR_WM_UNSUPPORTED,
 			}
 			return false
@@ -193,7 +226,7 @@ render_obtain_context :: proc() -> bool {
 	
 	if adapter == nil {
 		error = Render_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_REQUEST_ADAPTER_FAILED,
 		}
 		return false
@@ -215,7 +248,7 @@ render_obtain_context :: proc() -> bool {
 	
 	if device == nil {
 		error = Render_Error{
-			type = .Bad_Initialization,
+			type = .Init_Failed,
 			message = ERROR_REQUEST_DEVICE_FAILED,
 		}
 		return false
@@ -251,15 +284,57 @@ render_recreate_swap_chain :: proc() {
 }
 
 // Begins a new rendering frame.
-render_begin_frame :: proc() {
+render_begin_frame :: proc() -> bool {
 	using render_state
+
 	if swap_chain_invalid do render_recreate_swap_chain()
+	queue = wgpu.DeviceGetQueue(device)
+	current_texture_view = wgpu.SwapChainGetCurrentTextureView(swap_chain)
+	
+	if current_texture_view == nil {
+		error = Render_Error{
+			type = .Frame_Begin_Failed,
+			message = ERROR_GET_SWAP_CHAIN_TEXTURE_FAILED,
+		}
+		return false
+	}
+	
+	command_encoder = wgpu.DeviceCreateCommandEncoder(
+		device,
+		&wgpu.CommandEncoderDescriptor{},
+	)
+
+	render_pass_encoder = wgpu.CommandEncoderBeginRenderPass(
+		command_encoder,
+		&wgpu.RenderPassDescriptor{
+			label = "Render Pass",
+			colorAttachments = &wgpu.RenderPassColorAttachment{
+				view = current_texture_view,
+				loadOp = .Clear,
+				storeOp = .Store,
+				clearValue = wgpu.Color{0.0, 0.0, 0.0, 1.0},
+			},
+			colorAttachmentCount = 1,
+		},
+	)
+
+	return true
 }
 
 // Finishes the current rendering frame and presents it.
-render_end_frame :: proc() {
+render_end_frame :: proc() -> bool {
 	using render_state
+	
 	context_fresh = false
+	wgpu.RenderPassEncoderEnd(render_pass_encoder)
+	commands := wgpu.CommandEncoderFinish(
+		command_encoder,
+		&wgpu.CommandBufferDescriptor{},
+	)
+	wgpu.QueueSubmit(queue, 1, &commands)
+	wgpu.SwapChainPresent(swap_chain)
+
+	return true
 }
 
 // Returns whether the render context was recreated since last frame.
