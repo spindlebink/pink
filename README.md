@@ -11,7 +11,7 @@ We've got:
 * Runtime callbacks (load, ready, update, fixed update, draw, and exit)
 * Drawing axis-aligned rectangles
 
-That's about it right now. I'm in the middle of a migration of the codebase to a new API design, so rendering has been temporarily taken out, but the code exists. My current tasks are:
+That's about it right now. My current tasks are:
 
 * Completing a renderer MVP
   * For the MVP, I'm planning on supporting rectangle and circle primitives and images. *Maybe* text. The eventual target is a dedicated 2D renderer like NanoVG. Writing a 3D engine is outside of scope at the moment.
