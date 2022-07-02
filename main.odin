@@ -7,9 +7,10 @@ import "core:mem"
 import "core:time"
 import "pink"
 
+on_update :: proc(delta: f64) {
+}
+
 on_draw :: proc() {
-	pink.graphics_set_color_rgba(0.8392, 0.3922, 0.5176)
-	pink.graphics_draw_rectangle(10, 10, f32(pink.window_width() - 20), f32(pink.window_height() - 20))
 }
 
 main :: proc() {
@@ -24,7 +25,8 @@ main :: proc() {
 		}
 	}
 
-	pink.on_draw(on_draw)
-
-	pink.go()
+	pink.runtime_set_update_proc(on_update)
+	if !pink.runtime_go() {
+		pink.error_report_fatal(pink.runtime_error())
+	}
 }
