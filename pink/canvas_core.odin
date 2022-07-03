@@ -4,7 +4,7 @@ package pink
 import "core:c"
 import "core:fmt"
 import "core:reflect"
-import "wgpu/wgpu"
+import "wgpu"
 
 canvas_state := Canvas_State{
 	prim_verts = Render_Buffer{

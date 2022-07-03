@@ -4,7 +4,7 @@ package pink
 import "core:c"
 import "core:fmt"
 import "core:hash"
-import "wgpu/wgpu"
+import "wgpu"
 
 image_state := Image_State{}
 

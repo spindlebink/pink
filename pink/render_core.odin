@@ -4,7 +4,7 @@ package pink
 import "core:c"
 import "core:fmt"
 import sdl "vendor:sdl2"
-import "wgpu/wgpu"
+import "wgpu"
 
 render_state := Render_State{
 }

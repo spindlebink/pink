@@ -3,7 +3,7 @@ package pink
 import "core:fmt"
 import sdl "vendor:sdl2"
 import stbi "vendor:stb/image"
-import "wgpu/wgpu"
+import "wgpu"
 
 // ************************************************************************** //
 // Type Definitions
