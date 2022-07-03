@@ -40,11 +40,20 @@ image_register_load :: proc(image: ^Image) {
 	
 	image.hash = hash.murmur32(image.data[0:image.width * image.height])
 	
-	if !(image.hash in render_data) {
+	if image.hash not_in render_data {
 		render_data[image.hash] = Image_Render_Data{
 			image = image,
 			usable = false,
 		}
+	}
+}
+
+image_render_data_destroy :: proc(image: ^Image) {
+	if ren, ok := image_state.render_data[image.hash]; ok {
+		wgpu.BindGroupDrop(ren.bind_group)
+		wgpu.SamplerDrop(ren.texture_sampler)
+		wgpu.TextureViewDrop(ren.texture_view)
+		wgpu.TextureDrop(ren.texture)
 	}
 }
 

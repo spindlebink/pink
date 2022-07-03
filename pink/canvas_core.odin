@@ -82,11 +82,13 @@ Canvas_Draw_State_Memo :: struct {
 }
 
 Canvas_State :: struct {
+	prim_pipeline_layout: wgpu.PipelineLayout,
 	prim_pipeline: wgpu.RenderPipeline,
 	prim_verts: Render_Buffer,
 	prim_insts: Render_Buffer,
 	prim_vert_data: []Canvas_Primitive_Vertex,
 	prim_inst_data: [dynamic]Canvas_Primitive_Instance,
+	img_pipeline_layout: wgpu.PipelineLayout,
 	img_pipeline: wgpu.RenderPipeline,
 	img_insts: Render_Buffer,
 	img_inst_data: [dynamic]Canvas_Primitive_Instance,
@@ -220,14 +222,21 @@ canvas_recreate_pipeline :: proc() {
 
 	*/
 	
+	if prim_pipeline != nil {
+		wgpu.PipelineLayoutDrop(prim_pipeline_layout)
+		wgpu.RenderPipelineDrop(prim_pipeline)
+	}
+
+ 	prim_pipeline_layout = wgpu.DeviceCreatePipelineLayout(
+		device,
+		&wgpu.PipelineLayoutDescriptor{},
+	)
+	
 	prim_pipeline = wgpu.DeviceCreateRenderPipeline(
 		device,
 		&wgpu.RenderPipelineDescriptor{
 			label = "CanvasRenderPrimitivePipeline",
-			layout = wgpu.DeviceCreatePipelineLayout(
-				device,
-				&wgpu.PipelineLayoutDescriptor{},
-			),
+			layout = prim_pipeline_layout,
 			vertex = wgpu.VertexState{
 				module = core_shader_module,
 				entryPoint = "prim_vertex_main",
@@ -293,6 +302,10 @@ canvas_recreate_pipeline :: proc() {
 		},
 	}
 	
+	if tex_bind_group_layout != nil {
+		wgpu.BindGroupLayoutDrop(tex_bind_group_layout)
+	}
+	
 	tex_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
 		device,
 		&wgpu.BindGroupLayoutDescriptor{
@@ -306,18 +319,25 @@ canvas_recreate_pipeline :: proc() {
 		tex_bind_group_layout,
 	}
 	
+	if img_pipeline != nil {
+		wgpu.PipelineLayoutDrop(img_pipeline_layout)
+		wgpu.RenderPipelineDrop(img_pipeline)
+	}
+
+	img_pipeline_layout = wgpu.DeviceCreatePipelineLayout(
+		device,
+		&wgpu.PipelineLayoutDescriptor{
+			label = "ImgPipelineLayout",
+			bindGroupLayoutCount = 1,
+			bindGroupLayouts = cast([^]wgpu.BindGroupLayout) raw_data(bind_group_layouts),
+		},
+	)
+	
 	img_pipeline = wgpu.DeviceCreateRenderPipeline(
 		device,
 		&wgpu.RenderPipelineDescriptor{
 			label = "CanvasRenderImgPipeline",
-			layout = wgpu.DeviceCreatePipelineLayout(
-				device,
-				&wgpu.PipelineLayoutDescriptor{
-					label = "ImgPipelineLayout",
-					bindGroupLayoutCount = 1,
-					bindGroupLayouts = cast([^]wgpu.BindGroupLayout) raw_data(bind_group_layouts),
-				},
-			),
+			layout = img_pipeline_layout,
 			vertex = wgpu.VertexState{
 				module = core_shader_module,
 				entryPoint = "img_vertex_main",
@@ -495,8 +515,33 @@ canvas_exit :: proc() -> bool {
 	delete(img_inst_data)
 	delete(draw_items)
 	delete(draw_state_stack)
-	if prim_verts.handle != nil do wgpu.BufferDestroy(prim_verts.handle)
-	if prim_insts.handle != nil do wgpu.BufferDestroy(prim_insts.handle)
+	
+	if prim_pipeline != nil {
+		wgpu.PipelineLayoutDrop(prim_pipeline_layout)
+		wgpu.RenderPipelineDrop(prim_pipeline)
+	}
+	
+	if img_pipeline != nil {
+		wgpu.PipelineLayoutDrop(img_pipeline_layout)
+		wgpu.RenderPipelineDrop(img_pipeline)
+	}
+
+	if core_shader_module != nil {
+		wgpu.ShaderModuleDrop(core_shader_module)
+	}
+	
+	if prim_verts.handle != nil {
+		wgpu.BufferDestroy(prim_verts.handle)
+		wgpu.BufferDrop(prim_verts.handle)
+	}
+	if prim_insts.handle != nil {
+		wgpu.BufferDestroy(prim_insts.handle)
+		wgpu.BufferDrop(prim_insts.handle)
+	}
+	if img_insts.handle != nil {
+		wgpu.BufferDestroy(img_insts.handle)
+		wgpu.BufferDrop(img_insts.handle)
+	}
 	
 	return true
 }

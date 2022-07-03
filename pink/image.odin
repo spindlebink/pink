@@ -67,4 +67,5 @@ image_load_png :: proc(data: []u8, options := Image_Load_Options{}) -> Image {
 
 image_destroy :: proc(image: ^Image) {
 	stbi.image_free(image.data)
+	image_render_data_destroy(image)
 }

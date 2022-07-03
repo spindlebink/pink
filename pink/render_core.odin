@@ -132,7 +132,10 @@ render_clear_error :: proc() {
 // if necessary.
 render_buffer_ensure_size :: proc(buffer: ^Render_Buffer, size: int) {
 	if size > buffer.size {
-		if buffer.handle != nil do wgpu.BufferDestroy(buffer.handle)
+		if buffer.handle != nil {
+			wgpu.BufferDestroy(buffer.handle)
+			wgpu.BufferDrop(buffer.handle)
+		}
 		buffer.handle = wgpu.DeviceCreateBuffer(
 			render_state.device,
 			&wgpu.BufferDescriptor{
@@ -249,6 +252,11 @@ render_obtain_context :: proc() -> bool {
 		return false
 	}
 	
+	if device != nil {
+		wgpu.DeviceDestroy(device)
+		wgpu.DeviceDrop(device)
+	}
+	
 	wgpu.AdapterRequestDevice(
 		adapter,
 		&wgpu.DeviceDescriptor{
@@ -351,6 +359,10 @@ render_end_frame :: proc() -> bool {
 	wgpu.QueueSubmit(queue, 1, &commands)
 	wgpu.SwapChainPresent(swap_chain)
 
+	wgpu.TextureViewDrop(current_texture_view)
+	// wgpu.CommandBufferDrop(commands)
+	// wgpu.CommandEncoderDrop(command_encoder)
+
 	return true
 }
 
@@ -374,7 +386,13 @@ render_exit :: proc() -> bool {
 	
 	exiting = true
 	
-	if device != nil do wgpu.DeviceDestroy(device)
+	if device != nil {
+		wgpu.DeviceDestroy(device)
+		wgpu.DeviceDrop(device)
+	}
+	if swap_chain != nil {
+		// wgpu.SwapChainDrop(swap_chain)
+	}
 	
 	return true
 }
