@@ -7,46 +7,28 @@ import "core:mem"
 import "core:time"
 import "pink"
 
-SIZE :: 40.0
-
-on_update :: proc(delta: f64) {
+Game_State :: struct {
+	kenney_img: pink.Image,
 }
 
-on_fixed_update :: proc(delta: f64) {
-}
+game_state: Game_State
 
 on_draw :: proc() {
-	pink.canvas_set_color(pink.PINK)
-	
-	for x := 0; x < 10; x += 1 {
-		for y := 0; y < 5; y += 1 {
-			pink.canvas_draw_rect(
-				f32(x) * (SIZE * 1.1),
-				f32(y) * (SIZE * 1.1),
-				f32(SIZE),
-				f32(SIZE),
-			)
-		}
-	}
+	pink.canvas_draw_img(
+		&game_state.kenney_img,
+		0, 0,
+		f32(game_state.kenney_img.width), f32(game_state.kenney_img.height),
+	)
 }
 
 main :: proc() {
-	tracker: mem.Tracking_Allocator
-	mem.tracking_allocator_init(&tracker, context.allocator)
-	defer mem.tracking_allocator_destroy(&tracker)
-	context.allocator = mem.tracking_allocator(&tracker)
-	defer if len(tracker.allocation_map) > 0 {
-		fmt.eprintln()
-		for _, v in tracker.allocation_map {
-			fmt.eprintf("%v - leaked %v bytes\n", v.location, v.size)
-		}
-	}
-
-	pink.runtime_set_update_proc(on_update)
-	pink.runtime_set_fixed_update_proc(on_fixed_update)
 	pink.runtime_set_draw_proc(on_draw)
 	
+	game_state.kenney_img = pink.image_load_png(#load("kenney16.png"))
+
 	if !pink.runtime_go() {
 		pink.error_report_fatal(pink.runtime_error())
 	}
+	
+	pink.image_destroy(&game_state.kenney_img)
 }
