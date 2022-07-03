@@ -53,6 +53,7 @@ image_render_data_destroy :: proc(image: ^Image) {
 		wgpu.BindGroupDrop(ren.bind_group)
 		wgpu.SamplerDrop(ren.texture_sampler)
 		wgpu.TextureViewDrop(ren.texture_view)
+		wgpu.TextureDestroy(ren.texture)
 		wgpu.TextureDrop(ren.texture)
 	}
 }
