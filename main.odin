@@ -13,15 +13,19 @@ Game_State :: struct {
 
 game_state: Game_State
 
+on_update :: proc(delta: f64) {
+}
+
 on_draw :: proc() {
 	pink.canvas_draw_img(
 		&game_state.kenney_img,
-		0, 0,
+		10, 10,
 		f32(game_state.kenney_img.width), f32(game_state.kenney_img.height),
 	)
 }
 
 main :: proc() {
+	pink.runtime_set_update_proc(on_update)
 	pink.runtime_set_draw_proc(on_draw)
 	
 	game_state.kenney_img = pink.image_load_png(#load("kenney16.png"))
