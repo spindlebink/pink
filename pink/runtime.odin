@@ -24,6 +24,7 @@ ERROR_RENDER_EXIT_FAILED :: "Failed to shut down renderer"
 ERROR_RENDER_FRAME_FAILED :: "Render error"
 ERROR_CANVAS_INIT_FAILED :: "Failed to initialize canvas"
 ERROR_CANVAS_EXIT_FAILED :: "Failed to shut down canvas"
+ERROR_IMAGE_EXIT_FAILED :: "Failed to shut down images"
 
 // ************************************************************************** //
 // Procedures
@@ -134,6 +135,7 @@ runtime_go :: proc() -> bool {
 
 	window.flags = sdl.WindowFlags{.RESIZABLE}
 	when ODIN_OS == .Linux {
+		// do we actually need this? WGPU seems to initialize correctly regardless
 		window.flags += {.VULKAN}
 	}
 
@@ -276,6 +278,14 @@ runtime_go :: proc() -> bool {
 		error = Runtime_Error{
 			type = .Exit_Failed,
 			message = ERROR_CANVAS_EXIT_FAILED,
+		}
+		return false
+	}
+	
+	if !image_exit() {
+		error = Runtime_Error{
+			type = .Exit_Failed,
+			message = ERROR_IMAGE_EXIT_FAILED,
 		}
 		return false
 	}

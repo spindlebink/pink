@@ -40,16 +40,37 @@ canvas_set_color :: proc(color: Color) {
 canvas_draw_rect :: proc(x, y, w, h: f32) {
 	using canvas_state
 	
-	win_w, win_h := f32(runtime_window_width()), f32(runtime_window_height())
-	scaled_x, scaled_y := render_pos_from_window_pos(x + w * 0.5, y + h * 0.5)
-	scaled_w, scaled_h := w / win_w, h / win_h
+	sx, sy, sw, sh := render_rect_from_window_rect(
+		x + w * 0.5,
+		y + h * 0.5,
+		w,
+		h,
+	)
 	
 	append(&prim_inst_data, Canvas_Primitive_Instance{
-		translation = {scaled_x, scaled_y},
-		scale = {scaled_w, scaled_h},
+		translation = {sx, sy},
+		scale = {sw, sh},
 		rotation = 0.0,
 		modulation = cast([4]f32) draw_state.color,
 	})
-	canvas_append_draw_item(.Rect_Primitive)
+	canvas_append_draw_item(Canvas_Draw_Primitive_Data{.Rect})
 }
 
+canvas_draw_img :: proc(image: ^Image, x, y, w, h: f32) {
+	using canvas_state
+	
+	sx, sy, sw, sh := render_rect_from_window_rect(
+		x + w * 0.5,
+		y + h * 0.5,
+		w,
+		h,
+	)
+	
+	append(&img_inst_data, Canvas_Primitive_Instance{
+		translation = {sx, sy},
+		scale = {sw, sh},
+		rotation = 0.0,
+		modulation = cast([4]f32) draw_state.color,
+	})
+	canvas_append_draw_item(Canvas_Draw_Image_Data{image})
+}

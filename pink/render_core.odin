@@ -164,6 +164,17 @@ render_pos_from_window_pos :: proc(x, y: f32) -> (ren_x, ren_y: f32) {
 	return x / (win_w * 0.5) - 1.0, 1.0 - y / (win_h * 0.5)
 }
 
+// Converts a rectangle in window coordinates to a rectangle in GPU device
+// coordinates.
+render_rect_from_window_rect :: proc(x, y, w, h: f32) -> (rx, ry, rw, rh: f32) {
+	win_w, win_h := f32(runtime_window_width()), f32(runtime_window_height())
+	rx = x / (win_w * 0.5) - 1.0
+	ry = 1.0 - y / (win_h * 0.5)
+	rw = w / win_w
+	rh = h / win_h
+	return
+}
+
 // Initializes the WGPU context.
 render_init :: proc() -> bool {
 	using render_state
