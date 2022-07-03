@@ -26,7 +26,7 @@ game: Game
 on_load :: proc() {
 	using game
 	
-	x_range, y_range := f64(pink.window_width() - RECT_SIZE), f64(pink.window_height() - RECT_SIZE)
+	x_range, y_range := f64(pink.runtime_window_width() - RECT_SIZE), f64(pink.runtime_window_height() - RECT_SIZE)
 
 	for i := 0; i < INSTANCES; i += 1 {
 		buns[i].color = pink.Color{
@@ -43,7 +43,7 @@ on_load :: proc() {
 on_update :: proc(timestep: f64) {
 	using game
 
-	x_range, y_range := f64(pink.window_width() - RECT_SIZE), f64(pink.window_height() - RECT_SIZE)
+	x_range, y_range := f64(pink.runtime_window_width() - RECT_SIZE), f64(pink.runtime_window_height() - RECT_SIZE)
 
 	for i := 0; i < INSTANCES; i += 1 {
 		buns[i].yv += GRAVITY
@@ -64,8 +64,8 @@ on_update :: proc(timestep: f64) {
 on_draw :: proc() {
 	using game
 	for i := 0; i < INSTANCES; i += 1 {
-		pink.graphics_set_color(buns[i].color)
-		pink.graphics_draw_rectangle(
+		pink.canvas_set_color(buns[i].color)
+		pink.canvas_draw_rect(
 			f32(buns[i].x), f32(buns[i].y),
 			f32(RECT_SIZE), f32(RECT_SIZE),
 		)
@@ -73,9 +73,8 @@ on_draw :: proc() {
 }
 
 main :: proc() {
-	pink.on_load(on_load)
-	pink.on_update(on_update)
-	pink.on_draw(on_draw)
-
-	pink.go()
+	pink.runtime_set_load_proc(on_load)
+	pink.runtime_set_update_proc(on_update)
+	pink.runtime_set_draw_proc(on_draw)
+	pink.runtime_go()
 }
