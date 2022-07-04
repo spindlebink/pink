@@ -3,6 +3,7 @@ package pink
 
 import "core:c"
 import "core:fmt"
+import "core:math/linalg"
 import "core:reflect"
 import "wgpu"
 
@@ -81,6 +82,8 @@ Canvas_Draw_State_Memo :: struct {
 	state: Canvas_Draw_State,
 }
 
+Canvas_Draw_Transform :: linalg.Matrix3x3f32
+
 Canvas_State :: struct {
 	prim_pipeline_layout: wgpu.PipelineLayout,
 	prim_pipeline: wgpu.RenderPipeline,
@@ -96,7 +99,7 @@ Canvas_State :: struct {
 	tex_bind_group_layout: wgpu.BindGroupLayout,
 	active_pipeline: wgpu.RenderPipeline,
 	
-	error: Canvas_Error,
+	error: Error(Canvas_Error),
 	draw_items: [dynamic]Canvas_Draw_Item,
 	draw_state: Canvas_Draw_State,
 	draw_state_stack: [dynamic]Canvas_Draw_State_Memo,
@@ -111,7 +114,7 @@ canvas_init :: proc() -> bool {
 	using canvas_state
 
 	core_shader_module = render_shader_module_create_wgsl(#load("shader.wgsl"))
-	
+
 	return true
 }
 
@@ -139,7 +142,7 @@ canvas_append_draw_item :: proc(
 
 			// Check image draw items
 			case Canvas_Draw_Image_Data:
-				if data.(Canvas_Draw_Image_Data).image == top^.data.(Canvas_Draw_Image_Data).image {
+				if data.(Canvas_Draw_Image_Data).image.hash == top^.data.(Canvas_Draw_Image_Data).image.hash {
 					top.count += count
 					return
 				}

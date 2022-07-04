@@ -16,6 +16,12 @@ PINK :: Color{0.839215, 0.392157, 0.517647, 1.0}
 // Procedures
 // ************************************************************************** //
 
+// Prints an error message. Use for recoverable errors.
+error_report :: proc(error: $E/Error) {
+	msg := fmt.aprintf("Error [%s]: %s", error.type, error.message); defer delete(msg)
+	fmt.eprintln(msg)
+}
+
 // Reports a fatal error via a message box. Use for unrecoverable errors.
 error_report_fatal :: proc(error: $E/Error) {
 	msg := fmt.aprintf(

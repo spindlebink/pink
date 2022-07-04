@@ -59,7 +59,7 @@ fn prim_fragment_main(
 struct ImgVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) modulation: vec4<f32>,
-    @location(2) uv: vec2<f32>,
+    @location(1) uv: vec2<f32>,
 };
 
 @stage(vertex)

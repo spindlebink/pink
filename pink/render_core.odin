@@ -6,21 +6,18 @@ import "core:fmt"
 import sdl "vendor:sdl2"
 import "wgpu"
 
-render_state := Render_State{
-}
+render_state := Render_State{}
 
 // ************************************************************************** //
 // Type Definitions & Constants
 // ************************************************************************** //
 
-Render_Error_Type :: enum {
+Render_Error :: enum {
 	None,
 	Init_Failed,
 	Uncaptured_WGPU_Error,
 	Frame_Begin_Failed,
 }
-
-Render_Error :: Error(Render_Error_Type)
 
 ERROR_WINDOW_INFO_FAILED :: "Failed to collect window info"
 ERROR_WM_UNSUPPORTED :: "Unsupported window manager"
@@ -38,7 +35,7 @@ Render_State :: struct {
 	render_pass_encoder: wgpu.RenderPassEncoder,
 	current_texture_view: wgpu.TextureView,
 
-	error: Render_Error,
+	error: Error(Render_Error),
 	exiting: bool,
 
 	swap_chain_invalid: bool,
@@ -92,7 +89,7 @@ uncaptured_error_callback :: proc(
 	message: cstring,
 	userdata: rawptr,
 ) {
-	render_state.error = Render_Error{
+	render_state.error = Error(Render_Error){
 		type = .Uncaptured_WGPU_Error,
 		message = string(message),
 	}
@@ -119,7 +116,7 @@ render_ok :: proc() -> bool {
 }
 
 // Returns any error the runtime system last experienced.
-render_error :: proc() -> Render_Error {
+render_error :: proc() -> Error(Render_Error) {
 	return render_state.error
 }
 
@@ -190,7 +187,7 @@ render_init :: proc() -> bool {
 		sdl.GetVersion(&wm_info.version)
 
 		if !sdl.GetWindowWMInfo(runtime_state.window.handle, &wm_info) {
-			error = Render_Error{
+			error = Error(Render_Error){
 				type = .Init_Failed,
 				message = ERROR_WINDOW_INFO_FAILED,
 			}
@@ -198,7 +195,7 @@ render_init :: proc() -> bool {
 		}
 
 		if wm_info.subsystem != .X11 {
-			error = Render_Error{
+			error = Error(Render_Error){
 				type = .Init_Failed,
 				message = ERROR_WM_UNSUPPORTED,
 			}
@@ -245,7 +242,7 @@ render_obtain_context :: proc() -> bool {
 	)
 	
 	if adapter == nil {
-		error = Render_Error{
+		error = Error(Render_Error){
 			type = .Init_Failed,
 			message = ERROR_REQUEST_ADAPTER_FAILED,
 		}
@@ -272,7 +269,7 @@ render_obtain_context :: proc() -> bool {
 	)
 	
 	if device == nil {
-		error = Render_Error{
+		error = Error(Render_Error){
 			type = .Init_Failed,
 			message = ERROR_REQUEST_DEVICE_FAILED,
 		}
@@ -317,7 +314,7 @@ render_begin_frame :: proc() -> bool {
 	current_texture_view = wgpu.SwapChainGetCurrentTextureView(swap_chain)
 	
 	if current_texture_view == nil {
-		error = Render_Error{
+		error = Error(Render_Error){
 			type = .Frame_Begin_Failed,
 			message = ERROR_GET_SWAP_CHAIN_TEXTURE_FAILED,
 		}
@@ -390,9 +387,6 @@ render_exit :: proc() -> bool {
 		wgpu.DeviceDestroy(device)
 		wgpu.DeviceDrop(device)
 	}
-	if swap_chain != nil {
-		// wgpu.SwapChainDrop(swap_chain)
-	}
-	
+
 	return true
 }

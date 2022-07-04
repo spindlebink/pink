@@ -31,7 +31,7 @@ Runtime_State :: struct {
 	should_quit: bool,
 	configured: bool,
 	config: Runtime_Config,
-	error: Runtime_Error,
+	error: Error(Runtime_Error),
 
 	window: Runtime_Window_State,
 	clock: Runtime_Clock_State,

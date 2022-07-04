@@ -24,15 +24,20 @@ on_draw :: proc() {
 	)
 }
 
+on_exit :: proc() {
+	pink.image_destroy(&game_state.kenney_img)
+}
+
 main :: proc() {
 	pink.runtime_set_update_proc(on_update)
 	pink.runtime_set_draw_proc(on_draw)
+	pink.runtime_set_exit_proc(on_exit)
 	
 	game_state.kenney_img = pink.image_load_png(#load("kenney16.png"))
 
-	if !pink.runtime_go() {
-		pink.error_report_fatal(pink.runtime_error())
-	}
-	
-	pink.image_destroy(&game_state.kenney_img)
+	pink.runtime_go()
+
+	// if !pink.runtime_go() {
+	// 	pink.error_report_fatal(pink.runtime_error())
+	// }
 }

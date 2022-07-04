@@ -1,5 +1,6 @@
 package pink
 
+import "core:fmt"
 import "core:time"
 import sdl "vendor:sdl2"
 
@@ -7,14 +8,12 @@ import sdl "vendor:sdl2"
 // Type Definitions & Constants
 // ************************************************************************** //
 
-Runtime_Error_Type :: enum {
+Runtime_Error :: enum {
 	None,
 	Init_Failed,
 	Render_Frame_Failed,
 	Exit_Failed,
 }
-
-Runtime_Error :: Error(Runtime_Error_Type)
 
 ERROR_DUPLICATE_GO_CALLS :: "Duplicate calls to runtime_go()"
 ERROR_SDL_INIT_FAILED :: "Failed to initialize SDL"
@@ -29,22 +28,6 @@ ERROR_IMAGE_EXIT_FAILED :: "Failed to shut down images"
 // ************************************************************************** //
 // Procedures
 // ************************************************************************** //
-
-// Returns `true` if the runtime system has encountered no errors or if any
-// errors have been marked as handled.
-runtime_ok :: proc() -> bool {
-	return runtime_state.error.type == .None
-}
-
-// Returns any error the runtime system last experienced.
-runtime_error :: proc() -> Runtime_Error {
-	return runtime_state.error
-}
-
-// Marks any error the runtime system has received as handled.
-runtime_clear_error :: proc() {
-	runtime_state.error.type = .None
-}
 
 // Configures the program. Call before calling `runtime_go()`.
 runtime_configure :: proc(
@@ -108,7 +91,7 @@ runtime_go :: proc() -> bool {
 	using runtime_state
 	
 	if running {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Init_Failed,
 			message = ERROR_DUPLICATE_GO_CALLS,
 		}
@@ -126,7 +109,7 @@ runtime_go :: proc() -> bool {
 	
 	initialized := sdl.Init({.VIDEO}); defer sdl.Quit()
 	if initialized < 0 {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Init_Failed,
 			message = ERROR_SDL_INIT_FAILED,
 		}
@@ -150,7 +133,7 @@ runtime_go :: proc() -> bool {
 	defer sdl.DestroyWindow(window.handle)
 
 	if window.handle == nil {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Init_Failed,
 			message = ERROR_WINDOW_CREATION_FAILED,
 		}
@@ -160,7 +143,7 @@ runtime_go :: proc() -> bool {
 	sdl.GetWindowSize(window.handle, &window.width, &window.height)
 
 	if !render_init() {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Init_Failed,
 			message = ERROR_RENDER_INIT_FAILED,
 		}
@@ -168,7 +151,7 @@ runtime_go :: proc() -> bool {
 	}
 	
 	if !canvas_init() {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Init_Failed,
 			message = ERROR_CANVAS_INIT_FAILED,
 		}
@@ -248,7 +231,7 @@ runtime_go :: proc() -> bool {
 		if on_draw != nil do on_draw()
 
 		if !render_begin_frame() {
-			error = Runtime_Error{
+			error = Error(Runtime_Error){
 				type = .Render_Frame_Failed,
 				message = ERROR_RENDER_FRAME_FAILED,
 			}
@@ -258,7 +241,7 @@ runtime_go :: proc() -> bool {
 		canvas_render()
 		
 		if !render_end_frame() {
-			error = Runtime_Error{
+			error = Error(Runtime_Error){
 				type = .Render_Frame_Failed,
 				message = ERROR_RENDER_FRAME_FAILED,
 			}
@@ -275,7 +258,7 @@ runtime_go :: proc() -> bool {
 	if on_exit != nil do on_exit()
 
 	if !canvas_exit() {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Exit_Failed,
 			message = ERROR_CANVAS_EXIT_FAILED,
 		}
@@ -283,7 +266,7 @@ runtime_go :: proc() -> bool {
 	}
 	
 	if !image_exit() {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Exit_Failed,
 			message = ERROR_IMAGE_EXIT_FAILED,
 		}
@@ -291,7 +274,7 @@ runtime_go :: proc() -> bool {
 	}
 	
 	if !render_exit() {
-		error = Runtime_Error{
+		error = Error(Runtime_Error){
 			type = .Exit_Failed,
 			message = ERROR_RENDER_EXIT_FAILED,
 		}
