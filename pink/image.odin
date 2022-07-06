@@ -66,6 +66,7 @@ image_create :: proc(
 	return image
 }
 
+// Destroys an image.
 image_destroy :: proc(image: ^Image) {
 	stbi.image_free(image._data)
 	if image._renderable {

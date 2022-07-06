@@ -59,9 +59,14 @@ canvas_draw_rect :: proc(
 canvas_draw_image :: proc(
 	canvas: ^Canvas,
 	image: ^Image,
-	x, y, width, height: f32,
+	x, y: f32,
+	width: f32 = -1.0,
+	height: f32 = -1.0,
 	rotation: f32 = 0.0,
 ) {
+	width, height := width, height
+	if width < 0 do width = f32(image.width)
+	if height < 0 do height = f32(image.height)
 	append(
 		&canvas._image_pipeline.instances.data,
 		Canvas_Primitive_Instance{

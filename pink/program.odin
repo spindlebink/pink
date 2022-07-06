@@ -36,6 +36,8 @@ Program_Hooks :: struct {
 	on_ready: proc(),
 	on_update: proc(f64),
 	on_update_fixed: proc(f64),
+	on_mouse_button_down: proc(int, int, Mouse_Button),
+	on_mouse_button_up: proc(int, int, Mouse_Button),
 	on_draw: proc(),
 	on_exit: proc(),
 }
@@ -48,6 +50,12 @@ Program_Config :: struct {
 	fixed_framerate: f64,
 	framerate_cap: f64,
 	vsync_enabled: bool,
+}
+
+Mouse_Button :: enum {
+	Left,
+	Right,
+	Middle,
 }
 
 // Configures the program. Call before `program_load()`. If you skip
@@ -155,6 +163,23 @@ program_run :: proc(
 					maximized = true
 					size_changed = true
 				}
+			case .MOUSEBUTTONDOWN:
+				if program.hooks.on_mouse_button_down != nil {
+					program.hooks.on_mouse_button_down(
+						int(event.button.x),
+						int(event.button.y),
+						_mouse_button_from_sdl_button(event.button.button),
+					)
+				}
+
+			case .MOUSEBUTTONUP:
+				if program.hooks.on_mouse_button_up != nil {
+					program.hooks.on_mouse_button_up(
+						int(event.button.x),
+						int(event.button.y),
+						_mouse_button_from_sdl_button(event.button.button),
+					)
+				}
 			}
 		}
 		
@@ -199,3 +224,13 @@ program_exit :: proc(
 	return true
 }
 
+_mouse_button_from_sdl_button :: proc(button: u8) -> Mouse_Button {
+	if button == sdl.BUTTON_LEFT {
+		return .Left
+	} else if button == sdl.BUTTON_RIGHT {
+		return .Right
+	} else if button == sdl.BUTTON_MIDDLE {
+		return .Middle
+	}
+	return .Left
+}
