@@ -22,12 +22,13 @@ _dynamic_buffer_destroy :: proc(
 	delete(buffer.data)
 }
 
-_dynamic_buffer_copy_vertices :: proc(
+_dynamic_buffer_copy :: proc(
 	buffer: ^Dynamic_Buffer($Data),
 	renderer: ^Renderer,
 	clear_on_finished := true,
 ) {
-	new_size = len(buffer.data) * size_of(Data)
+	new_size := len(buffer.data) * size_of(Data)
+
 	if new_size > buffer.size {
 		if buffer.ptr != nil {
 			wgpu.BufferDestroy(buffer.ptr)
@@ -44,5 +45,15 @@ _dynamic_buffer_copy_vertices :: proc(
 		)
 	}
 
-	// TODO: queue the copy operation
+	if len(buffer.data) > 0 {
+		wgpu.QueueWriteBuffer(
+			renderer.queue,
+			buffer.ptr,
+			0,
+			raw_data(buffer.data),
+			c.size_t(new_size),
+		)
+
+		if clear_on_finished do clear(&buffer.data)
+	}
 }

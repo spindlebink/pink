@@ -77,6 +77,7 @@ program_configure :: proc(
 	}
 	
 	program._renderer.vsync = config.vsync_enabled
+	program.window._sdl_flags += {.RESIZABLE}
 	
 	program._phase = .Configured
 	return true
@@ -177,6 +178,7 @@ program_run :: proc(
 		
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
+		_canvas_flush_commands(&program.canvas, &program._renderer)
 		_renderer_end_frame(&program._renderer)
 
 		first_frame = false

@@ -14,6 +14,15 @@ Canvas_Primitive_Instance :: struct {
 	modulation: [4]f32,
 }
 
+CANVAS_PRIMITIVE_VERTICES :: []Canvas_Primitive_Vertex{
+	Canvas_Primitive_Vertex{{-1.0, 1.0}},
+	Canvas_Primitive_Vertex{{1.0, 1.0}},
+	Canvas_Primitive_Vertex{{-1.0, -1.0}},
+	Canvas_Primitive_Vertex{{-1.0, -1.0}},
+	Canvas_Primitive_Vertex{{1.0, 1.0}},
+	Canvas_Primitive_Vertex{{1.0, -1.0}},
+}
+
 CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES :: []wgpu.VertexAttribute{
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Vertex, position)),
