@@ -4,6 +4,9 @@ A WIP game framework in [the Odin programming language](https://odin-lang.org) m
 
 **This is not currently usable.** It's primarily a learning project at this point.
 
+* [Codeberg repo](https://codeberg.org/spindlebink/pink)
+* [GitHub mirror](https://github.com/spindlebink/pink)
+
 ## Odin?
 
 Odin is an absurdly well-designed programming language that's essentially all the good parts of C, plus a lot of more convenient features like generics, minus the 50-odd years of cruft C has accumulated while trying to stay up-to-date. You should definitely learn it. It's the ideal language for a minimalist framework like Pink.
