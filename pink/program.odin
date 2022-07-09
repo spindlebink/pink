@@ -5,8 +5,8 @@ import sdl "vendor:sdl2"
 
 PROGRAM_DEFAULT_CONFIG :: Program_Config{
 	window_title = "Window",
-	window_width = 800,
-	window_height = 600,
+	window_width = 1920,
+	window_height = 1080,
 	fixed_framerate = 60.0,
 	framerate_cap = 0.0,
 	vsync_enabled = false,
