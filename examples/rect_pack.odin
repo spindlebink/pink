@@ -5,16 +5,16 @@ import "core:sort"
 import "../pink"
 
 NUM_RECTS :: 2800
-MIN_RECT_SIDE :: 2
+MIN_RECT_SIDE :: 30
 MAX_RECT_SIDE :: 40
 ATLAS_SIZE :: 1024
-RECT_DISPLAY_RATE :: 15.0
+RECT_DISPLAY_RATE :: 4.0
 
 ctx: Context
 
 Context :: struct {
 	program: pink.Program,
-	rects: [NUM_RECTS]pink.Rect,
+	rects: [NUM_RECTS]pink.Rect(int),
 	packed_count: int,
 	displayed_rect: int,
 	time_counter: f64,
@@ -38,16 +38,16 @@ on_load :: proc() {
 			return NUM_RECTS
 		},
 		less = proc(it: sort.Interface, i, j: int) -> bool {
-			arr := cast(^[NUM_RECTS]pink.Rect)it.collection
+			arr := cast(^[NUM_RECTS]pink.Rect(int))it.collection
 			return arr[i].w * arr[i].h > arr[j].w * arr[j].h
 		},
 		swap = proc(it: sort.Interface, i, j: int) {
-			arr := cast(^[NUM_RECTS]pink.Rect)it.collection
+			arr := cast(^[NUM_RECTS]pink.Rect(int))it.collection
 			arr[i], arr[j] = arr[j], arr[i]
 		},
 		collection = &ctx.rects,
 	}
-	sort.sort(sorter)
+	// sort.sort(sorter)
 	
 	pink.rect_atlas_clear(&atlas, ATLAS_SIZE)
 
@@ -56,7 +56,7 @@ on_load :: proc() {
 			ctx.rects[i].x = failed_x
 			ctx.rects[i].y = failed_y
 			failed_x += ctx.rects[i].w
-			if failed_x > ATLAS_SIZE + 40 + ATLAS_SIZE {
+			if failed_x > ctx.program.window.width - 40 {
 				failed_x = ATLAS_SIZE + 40
 				failed_y += failed_row_height
 				failed_row_height = 0
