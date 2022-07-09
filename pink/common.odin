@@ -10,3 +10,6 @@ Color :: linalg.Vector4f32
 Rect :: struct($N: typeid) where intrinsics.type_is_numeric(N) {
 	x, y, w, h: N,
 }
+
+Recti :: Rect(int)
+Rectf :: Rect(f32)

@@ -1,7 +1,7 @@
 package pink
 
 Rect_Atlas :: struct {
-	spaces: [dynamic]Rect(int),
+	spaces: [dynamic]Recti,
 }
 
 // Cases for splitting empty space in an atlas.
@@ -15,7 +15,7 @@ Rect_Atlas_Split_Result :: enum {
 // Clears a rect atlas and sets it up for packing with a given space size.
 rect_atlas_clear :: proc(atlas: ^Rect_Atlas, side_size: int) {
 	clear(&atlas.spaces)
-	append(&atlas.spaces, Rect(int){0, 0, side_size, side_size})
+	append(&atlas.spaces, Recti{0, 0, side_size, side_size})
 }
 
 // Destroys a rect atlas.
@@ -25,15 +25,15 @@ rect_atlas_destroy :: proc(atlas: ^Rect_Atlas) {
 
 // Packs a rectangle into an atlas if it fits. Returns whether or not it could
 // be packed. Sets `rect`'s `x`/`y` if it fits.
-rect_atlas_pack :: proc(atlas: ^Rect_Atlas, rect: ^Rect(int)) -> bool {
+rect_atlas_pack :: proc(atlas: ^Rect_Atlas, rect: ^Recti) -> bool {
 	for i := len(atlas.spaces) - 1; i >= 0; i -= 1 {
 		space := atlas.spaces[i]
 		target_space := i
 		if rect.w <= space.w && rect.h <= space.h {
 			atlas.spaces[target_space] = atlas.spaces[len(atlas.spaces) - 1]
 			pop(&atlas.spaces)
-			small_split := Rect(int){}
-			big_split := Rect(int){}
+			small_split := Recti{}
+			big_split := Recti{}
 			split_result := _rect_atlas_split(
 				rect^,
 				space,
@@ -64,10 +64,10 @@ rect_atlas_pack :: proc(atlas: ^Rect_Atlas, rect: ^Rect(int)) -> bool {
 // Split a space to fit a rectangle into it, retrieving the size for the smaller
 // and larger splits if they're calculated.
 _rect_atlas_split :: proc(
-	rect: Rect(int),
-	space: Rect(int),
-	small: ^Rect(int),
-	big: ^Rect(int),
+	rect: Recti,
+	space: Recti,
+	small: ^Recti,
+	big: ^Recti,
 ) -> Rect_Atlas_Split_Result {
 	free_w, free_h := space.w - rect.w, space.h - rect.h
 
