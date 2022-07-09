@@ -13,23 +13,49 @@ Odin is an absurdly well-designed programming language that's essentially all th
 
 ## Project Goals?
 
-* Cleanness and orthogonality in the spirit of Odin. Individual framework components should do their own thing and do it well. Higher-level functionality builds on top of lower-level functionality--few to no black boxes.
-* Self-documentation. When the framework is at a more complete state, I want to ensure there are robust docs, but ideally most functions should be understandable at a glance: `image_load_png() -> Image` followed by `canvas_draw_img(&image, x, y, width, height)`, for example.
-* Pick-up-and-playness. Frameworks like LÖVE and Raylib are fun to use (for me, at least--YMMV) because they often scratch the itch most game developers have to make their own engines, but do so without requiring that you get down in the weeds of GPU programming and cross-platform support.
+Pink is *super* early in development right now, but progress is happening quickly.
+
+On the design side, it targets:
+
+* **Cleanness and orthogonality**
+  * Components should do their own thing and do it well
+  * Higher-level functionality builds on top of lower-level functionality
+  * Few to no redundancies, and few to no black boxes
+* **Self-evidence**
+  * Robust docs at a later state, but functions should be understandable at a glance
+  * You should be able to pick up the framework and use it on an introductory level even if you're given only an unexplained catalog of the framework's components
+* **Control over convenience**
+  * Pink is modeled after LÖVE, but its niche is a little lower-level than LÖVE: Odin is a very different language from Lua and implies a different level of control
+  * Little to no hiding of implementation details
+  * Access to the framework on multiple levels
+    * For example: the current design draft for text renderering requires font cache structures to track rasterized glyphs in an atlas
+      * Using a lot of different glyphs quickly means the rasterized glyphs may exceed atlas space, so we have to clear it and re-rasterize glyphs, which is a non-zero performance cost
+      * By default, Pink will store its own font caches for fonts
+      * But you should be able to also pass in a `pink.Font_Render_Cache` (or whatever it ends up being named) of your own to text rendering functions
+        * This way, if you know what characters you're going to use for instances of text drawing, you can ensure the atlases are baked correctly and avoid cache rebuilds
+* **Design features for programmers who want to make their own game engine but don't want to make their own game engine**
+  * Doing lower level programming for game development is fun, but most people probably like the *theory* of writing a game engine more than actually writing it: GPU programming is complex, verbose, and often tedious; designing an effective API is a big task; concerns like text rendering are highly complex
+  * Pink should be sufficiently low-level to provide high control from an engine built on top of it, but high-level enough for users to not worry about implementation details unless they want to
+  * It should read as a collection of tools that complement each other well rather than a monolithic, my-way-or-the-highway engine
 
 ## Status?
 
 We've got:
 
 * Runtime callbacks (load, ready, update, fixed update, draw, and exit)
-* Drawing axis-aligned rectangles
-* Drawing axis-aligned images
+* Drawing rectangles and images with position, rotation, size, and color modulation
 
-That's about it right now. My current tasks are:
+That's about it right now. I'm currently designing a text renderer.
+
+The longer-term goals for this prototypical form of Pink are:
 
 * Completing a renderer MVP
-  * For the MVP, I'm planning on supporting rectangle and circle primitives and images. *Maybe* text. The eventual target is a dedicated 2D renderer like NanoVG. Writing a 3D engine is outside of scope at the moment.
-  * The MVP renderer will operate in immediate-mode using calls like `canvas_draw_rect`. It'll also have a state stack which allows you to do easier graphics transformations on top of themselves. LÖVE is my model at the moment--once I get to an okay state, I'll do more design branching.
+  * The renderer operates in immediate-mode using calls like `canvas_draw_rect` during an `on_draw` program hook
+  * It also will feature a transformation and style state stack
+  * You will be able to draw a few geometry primitives, images, image slices (i.e. from an atlas), and text
+* Completing the input system MVP
+  * Modeled after LÖVE, the input system works off program hooks--`on_mouse_down`, `on_key_down`, etc.
+  * You'll also be able to retrieve the current input state of components on demand--`mouse_state(&state)`, `key_state(&state)`, etc.
 * Documenting the framework's internals. Too few projects document their implementation details, which makes contribution difficult. It's a (possible pipe) dream of mine for this to become a Real Open Source Entity.
 
 ## Limitations?
@@ -40,5 +66,5 @@ Pretty much everything right now. Pink is very much an infant framework. It also
 
 Feel free! Fork and pull request. I'm just figuring this stuff out. It may or may not turn into anything.
 
-Things that I'd appreciate help with, besides core stuff of course:
+Things that I'd most appreciate help with:
 * Cross-platform support. Odin makes this super easy, but the Windows side of my desktop isn't set up for development and I haven't had the heart to wrestle with the Windows dev experience right now.
