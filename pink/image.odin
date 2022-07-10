@@ -4,6 +4,7 @@ import "core:c"
 import "core:hash"
 import stbi "vendor:stb/image"
 import "wgpu"
+import "render"
 
 RGBA_CHANNELS :: 4
 
@@ -81,7 +82,7 @@ image_destroy :: proc(image: ^Image) {
 _image_fetch_bind_group :: proc(
 	image: ^Image,
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) -> wgpu.BindGroup {
 	if !image._renderable {
 		_image_init_render_data(image, canvas, renderer)
@@ -94,7 +95,7 @@ _image_fetch_bind_group :: proc(
 _image_init_render_data :: proc(
 	image: ^Image,
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) {
 	image._texture = wgpu.DeviceCreateTexture(
 		renderer.device,

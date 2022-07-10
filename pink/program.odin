@@ -2,6 +2,7 @@ package pink
 
 import "core:fmt"
 import sdl "vendor:sdl2"
+import "render"
 
 PROGRAM_DEFAULT_CONFIG :: Program_Config{
 	window_title = "Window",
@@ -24,7 +25,7 @@ Program :: struct {
 }
 
 Program_Core :: struct {
-	renderer: Renderer,
+	renderer: render.Context,
 	phase: enum {
 		Limbo,
 		Configured,
@@ -117,7 +118,7 @@ program_load :: proc(
 
 	if surface, ok := _window_create_wgpu_surface(&program.window); ok {
 		program.core.renderer.surface = surface
-		_renderer_init(&program.core.renderer)
+		render.context_init(&program.core.renderer)
 	} else {
 		fmt.eprintln("Failed to obtain render surface from window")
 		return false
@@ -189,14 +190,14 @@ program_run :: proc(
 		
 		if first_frame || size_changed || minimized || maximized {
 			_window_fetch_info(&program.window)
-			_renderer_resize(
+			render.context_resize(
 				&program.core.renderer,
 				program.window.width,
 				program.window.height,
 			)
 		}
 		
-		_renderer_begin_frame(&program.core.renderer)
+		render.context_begin_frame(&program.core.renderer)
 		
 		if program.hooks.on_update != nil do program.hooks.on_update(program.clock.delta_ms)
 		if program.hooks.on_update_fixed != nil {
@@ -208,7 +209,7 @@ program_run :: proc(
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
 		_canvas_flush_commands(&program.canvas, &program.core.renderer)
-		_renderer_end_frame(&program.core.renderer)
+		render.context_end_frame(&program.core.renderer)
 
 		first_frame = false
 	}
@@ -221,7 +222,7 @@ program_exit :: proc(
 	program: ^Program,
 ) -> bool {
 	_canvas_destroy(&program.canvas)
-	_renderer_destroy(&program.core.renderer)
+	render.context_destroy(&program.core.renderer)
 	_window_destroy(&program.window)
 	sdl.Quit()
 	

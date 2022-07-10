@@ -4,6 +4,7 @@ import "core:c"
 import "core:fmt"
 import "core:math/linalg"
 import "wgpu"
+import "render"
 
 Canvas :: struct {
 	core: Canvas_Core,
@@ -22,11 +23,11 @@ Canvas_Core :: struct {
 	
 	primitive_vertices: wgpu.Buffer,
 	
-	primitive_instances: Renderer_Buffer(Canvas_Primitive_Instance),
-	primitive_pipeline: Renderer_Pipeline,
+	primitive_instances: render.Buffer(Canvas_Primitive_Instance),
+	primitive_pipeline: render.Pipeline,
 
-	image_instances: Renderer_Buffer(Canvas_Primitive_Instance),
-	image_pipeline: Renderer_Pipeline,
+	image_instances: render.Buffer(Canvas_Primitive_Instance),
+	image_pipeline: render.Pipeline,
 }
 
 Canvas_Draw_State :: struct {
@@ -45,7 +46,7 @@ Canvas_Draw_State_Memo :: struct {
 // Initializes a canvas.
 _canvas_init :: proc(
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) {
 	canvas.core.shader = wgpu.DeviceCreateShaderModule(
 		renderer.device,
@@ -69,11 +70,11 @@ _canvas_init :: proc(
 _canvas_destroy :: proc(
 	canvas: ^Canvas,
 ) {
-	renderer_pipeline_deinit(&canvas.core.primitive_pipeline)
-	renderer_pipeline_deinit(&canvas.core.image_pipeline)
+	render.pipeline_deinit(&canvas.core.primitive_pipeline)
+	render.pipeline_deinit(&canvas.core.image_pipeline)
 
-	_renderer_buffer_destroy(&canvas.core.primitive_instances)
-	_renderer_buffer_destroy(&canvas.core.image_instances)
+	render.buffer_destroy(&canvas.core.primitive_instances)
+	render.buffer_destroy(&canvas.core.image_instances)
 
 	wgpu.ShaderModuleDrop(canvas.core.shader)
 	delete(canvas._draw_commands)
@@ -81,7 +82,7 @@ _canvas_destroy :: proc(
 
 _canvas_init_core_uniform :: proc(
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) {
 	group_entries := []wgpu.BindGroupLayoutEntry{
 		wgpu.BindGroupLayoutEntry{
@@ -131,7 +132,7 @@ _canvas_init_core_uniform :: proc(
 // Initializes a canvas's primitive and image pipelines.
 _canvas_init_pipelines :: proc(
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) {
 	group_entries := []wgpu.BindGroupLayoutEntry{
 		wgpu.BindGroupLayoutEntry{
@@ -181,10 +182,10 @@ _canvas_init_pipelines :: proc(
 
 	// Initialize primitive pipeline
 
-	renderer_pipeline_init(
+	render.pipeline_init(
 		renderer,
 		&canvas.core.primitive_pipeline,
-		Renderer_Pipeline_Descriptor{
+		render.Pipeline_Descriptor{
 			label = "CanvasPrimitivePipeline",
 			shader = canvas.core.shader,
 			vertex_entry_point = "prim_vertex_main",
@@ -198,10 +199,10 @@ _canvas_init_pipelines :: proc(
 
 	// Initialize image pipeline
 
-	renderer_pipeline_init(
+	render.pipeline_init(
 		renderer,
 		&canvas.core.image_pipeline,
-		Renderer_Pipeline_Descriptor{
+		render.Pipeline_Descriptor{
 			label = "CanvasImagePipeline",
 			shader = canvas.core.shader,
 			vertex_entry_point = "img_vertex_main",
@@ -217,7 +218,7 @@ _canvas_init_pipelines :: proc(
 
 _canvas_flush_commands :: proc(
 	canvas: ^Canvas,
-	renderer: ^Renderer,
+	renderer: ^render.Context,
 ) {
 	// Copy primitive vertices to buffer if it's a new rendering context
 	if renderer.fresh {
@@ -245,8 +246,8 @@ _canvas_flush_commands :: proc(
 		)
 	}
 
-	_renderer_buffer_copy(&canvas.core.primitive_instances, renderer)
-	_renderer_buffer_copy(&canvas.core.image_instances, renderer)
+	render.buffer_queue_copy_data(&canvas.core.primitive_instances, renderer)
+	render.buffer_queue_copy_data(&canvas.core.image_instances, renderer)
 
 	// TODO: don't re-send if it doesn't change/better way of sending core data
 	{

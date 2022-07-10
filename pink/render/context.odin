@@ -1,20 +1,14 @@
-package pink
+package pink_render
 
 import "core:c"
 import "core:fmt"
 import sdl "vendor:sdl2"
-import "wgpu"
-
-// Render context error types.
-Render_Error :: enum {
-	Uncaptured_WGPU_Error,
-	Frame_Failed,
-}
+import "../wgpu"
 
 // A WGPU rendering context, bringing together all WGPU components necessary to
 // draw things to the screen. Context beyond these members (i.e. pipelines) is
 // done on a module-local level.
-Renderer :: struct {
+Context :: struct {
 	surface: wgpu.Surface,
 	adapter: wgpu.Adapter,
 	device: wgpu.Device,
@@ -86,13 +80,13 @@ wgpu_device_lost_callback :: proc(
 	message: cstring,
 	userdata: rawptr,
 ) {
-	_renderer_init(cast(^Renderer) userdata)
+	context_init(cast(^Context) userdata)
 	fmt.eprintln("[wgpu]", message)
 }
 
 // Initializes a rendering context.
-_renderer_init :: proc(
-	ren: ^Renderer,
+context_init :: proc(
+	ren: ^Context,
 ) -> bool {
 	wgpu.SetLogCallback(wgpu_log_callback)
 	wgpu.SetLogLevel(.Warn)
@@ -159,8 +153,8 @@ _renderer_init :: proc(
 }
 
 // Destroys a renderer context.
-_renderer_destroy :: proc(
-	ren: ^Renderer,
+context_destroy :: proc(
+	ren: ^Context,
 ) -> bool {
 	ren.exiting = true
 
@@ -179,11 +173,11 @@ _renderer_destroy :: proc(
 // * Fetches the device queue and next swap chain texture view
 // * Creates a command encoder for the frame
 // * Begins a ren pass using the current swap chain texture view
-_renderer_begin_frame :: proc(
-	ren: ^Renderer,
+context_begin_frame :: proc(
+	ren: ^Context,
 ) -> bool {
 	if ren.swap_chain_expired || ren.fresh {
-		_renderer_recreate_swap_chain(ren)
+		context_recreate_swap_chain(ren)
 	}
 	
 	ren.queue = wgpu.DeviceGetQueue(ren.device)
@@ -226,8 +220,8 @@ _renderer_begin_frame :: proc(
 // * Ends the ren pass
 // * Submits the ren pass command encoder to the ren queue
 // * Presents the swap chain
-_renderer_end_frame :: proc(
-	ren: ^Renderer,
+context_end_frame :: proc(
+	ren: ^Context,
 ) -> bool {
 	ren.fresh = false
 	
@@ -246,8 +240,8 @@ _renderer_end_frame :: proc(
 // Recreates the swap chain on a ren context using the current `render_width`
 // and `render_height`. This will automatically be called at frame begin if
 // `swap_chain_expired` has been set and should not be called manually.
-_renderer_recreate_swap_chain :: proc(
-	ren: ^Renderer,
+context_recreate_swap_chain :: proc(
+	ren: ^Context,
 ) {
 	ren.swap_chain_expired = false
 	ren.swap_chain = wgpu.DeviceCreateSwapChain(
@@ -265,8 +259,8 @@ _renderer_recreate_swap_chain :: proc(
 
 // Marks the swap chain as expired and sets the new swap chain size to `width`/
 // `height`.
-_renderer_resize :: proc(
-	ren: ^Renderer,
+context_resize :: proc(
+	ren: ^Context,
 	width: int,
 	height: int,
 ) {

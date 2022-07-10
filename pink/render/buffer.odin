@@ -1,19 +1,19 @@
-package pink
+package pink_render
 
 import "core:c"
-import "wgpu"
+import "../wgpu"
 
-DYNAMIC_BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
+BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
-Renderer_Buffer :: struct($Data: typeid) {
+Buffer :: struct($Data: typeid) {
 	ptr: wgpu.Buffer,
 	size: int,
 	data: [dynamic]Data,
 	usage_flags: wgpu.BufferUsageFlags,
 }
 
-_renderer_buffer_destroy :: proc(
-	buffer: ^Renderer_Buffer($Data),
+buffer_destroy :: proc(
+	buffer: ^Buffer($Data),
 ) {
 	if buffer.ptr != nil {
 		wgpu.BufferDestroy(buffer.ptr)
@@ -22,9 +22,9 @@ _renderer_buffer_destroy :: proc(
 	delete(buffer.data)
 }
 
-_renderer_buffer_copy :: proc(
-	buffer: ^Renderer_Buffer($Data),
-	renderer: ^Renderer,
+buffer_queue_copy_data :: proc(
+	buffer: ^Buffer($Data),
+	renderer: ^Context,
 	clear_on_finished := true,
 ) {
 	new_size := len(buffer.data) * size_of(Data)
@@ -34,7 +34,7 @@ _renderer_buffer_copy :: proc(
 			wgpu.BufferDestroy(buffer.ptr)
 			wgpu.BufferDrop(buffer.ptr)
 		}
-		target_size := int(f64(new_size) * DYNAMIC_BUFFER_RESIZE_CAPACITY_MULTIPLIER)
+		target_size := int(f64(new_size) * BUFFER_RESIZE_CAPACITY_MULTIPLIER)
 		buffer.size = new_size
 		buffer.ptr = wgpu.DeviceCreateBuffer(
 			renderer.device,
