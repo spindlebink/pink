@@ -156,7 +156,7 @@ _image_init_render_data :: proc(
 		renderer.device,
 		&wgpu.BindGroupDescriptor{
 			label = "TextureBindGroup",
-			layout = canvas._image_pipeline.bind_group_layout,
+			layout = canvas.core.texture_bind_group_layout,
 			entryCount = c.uint32_t(len(entries)),
 			entries = cast([^]wgpu.BindGroupEntry)raw_data(entries),
 		},

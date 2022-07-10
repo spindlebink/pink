@@ -6,22 +6,27 @@ import "core:math/linalg"
 import "wgpu"
 
 Canvas :: struct {
-	_core_shader: wgpu.ShaderModule,
+	core: Canvas_Core,
 	_draw_state: Canvas_Draw_State,
 	_draw_commands: [dynamic]Canvas_Draw_Command,
-	_camera_buffer: wgpu.Buffer,
-	_camera_bind_group: wgpu.BindGroup,
-	_camera_bind_group_layout: wgpu.BindGroupLayout,
-	_primitive_vertices: wgpu.Buffer,
-	_primitive_pipeline: Canvas_Pipeline(Canvas_Primitive_Instance),
-	_image_pipeline: Canvas_Pipeline(Canvas_Primitive_Instance),
 }
 
-Canvas_Pipeline :: struct($Instance: typeid) {
-	bind_group_layout: wgpu.BindGroupLayout,
-	pipeline_layout: wgpu.PipelineLayout,
-	pipeline: wgpu.RenderPipeline,
-	instances: Dynamic_Buffer(Instance),
+Canvas_Core :: struct {	
+	shader: wgpu.ShaderModule,
+
+	texture_bind_group_layout: wgpu.BindGroupLayout,
+	
+	core_buffer: wgpu.Buffer,
+	core_bind_group: wgpu.BindGroup,
+	core_bind_group_layout: wgpu.BindGroupLayout,
+	
+	primitive_vertices: wgpu.Buffer,
+	
+	primitive_instances: Dynamic_Buffer(Canvas_Primitive_Instance),
+	primitive_pipeline: Renderer_Pipeline,
+
+	image_instances: Dynamic_Buffer(Canvas_Primitive_Instance),
+	image_pipeline: Renderer_Pipeline,
 }
 
 Canvas_Draw_State :: struct {
@@ -42,44 +47,39 @@ _canvas_init :: proc(
 	canvas: ^Canvas,
 	renderer: ^Renderer,
 ) {
-	canvas._core_shader = wgpu.DeviceCreateShaderModule(
+	canvas.core.shader = wgpu.DeviceCreateShaderModule(
 		renderer.device,
 		&wgpu.ShaderModuleDescriptor{
 			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.ShaderModuleWGSLDescriptor{
 				chain = wgpu.ChainedStruct{
 					sType = .ShaderModuleWGSLDescriptor,
 				},
-				code = cast(cstring)raw_data(#load("shader.wgsl")),
+				code = cast(cstring)raw_data(#load("res/shader.wgsl")),
 			},
 		},
 	)
 
 	canvas._draw_state.color = {1.0, 1.0, 1.0, 1.0}
 
-	canvas._primitive_pipeline.instances.usage_flags = {.Vertex, .CopyDst}
-	canvas._image_pipeline.instances.usage_flags = {.Vertex, .CopyDst}
+	canvas.core.primitive_instances.usage_flags = {.Vertex, .CopyDst}
+	canvas.core.image_instances.usage_flags = {.Vertex, .CopyDst}
 }
 
 // Destroys a canvas.
 _canvas_destroy :: proc(
 	canvas: ^Canvas,
 ) {
-	// wgpu.BindGroupLayoutDrop(canvas._primitive_pipeline.bind_group_layout)
-	wgpu.PipelineLayoutDrop(canvas._primitive_pipeline.pipeline_layout)
-	wgpu.RenderPipelineDrop(canvas._primitive_pipeline.pipeline)
+	renderer_pipeline_deinit(&canvas.core.primitive_pipeline)
+	renderer_pipeline_deinit(&canvas.core.image_pipeline)
 
-	wgpu.BindGroupLayoutDrop(canvas._image_pipeline.bind_group_layout)
-	wgpu.PipelineLayoutDrop(canvas._image_pipeline.pipeline_layout)
-	wgpu.RenderPipelineDrop(canvas._image_pipeline.pipeline)
+	_dynamic_buffer_destroy(&canvas.core.primitive_instances)
+	_dynamic_buffer_destroy(&canvas.core.image_instances)
 
-	_dynamic_buffer_destroy(&canvas._primitive_pipeline.instances)
-	_dynamic_buffer_destroy(&canvas._image_pipeline.instances)
-
-	wgpu.ShaderModuleDrop(canvas._core_shader)
+	wgpu.ShaderModuleDrop(canvas.core.shader)
 	delete(canvas._draw_commands)
 }
 
-_canvas_init_camera :: proc(
+_canvas_init_core_uniform :: proc(
 	canvas: ^Canvas,
 	renderer: ^Renderer,
 ) {
@@ -93,16 +93,16 @@ _canvas_init_camera :: proc(
 		},
 	}
 
-	canvas._camera_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+	canvas.core.core_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
 		renderer.device,
 		&wgpu.BindGroupLayoutDescriptor{
-			label = "CanvasCameraUniformBindGroupLayout",
+			label = "CanvasDataUniformBindGroupLayout",
 			entryCount = c.uint32_t(len(group_entries)),
 			entries = cast([^]wgpu.BindGroupLayoutEntry)raw_data(group_entries),
 		},
 	)
 
-	canvas._camera_buffer = wgpu.DeviceCreateBuffer(
+	canvas.core.core_buffer = wgpu.DeviceCreateBuffer(
 		renderer.device,
 		&wgpu.BufferDescriptor{
 			usage = {.Uniform, .CopyDst},
@@ -113,17 +113,17 @@ _canvas_init_camera :: proc(
 	bind_entries := []wgpu.BindGroupEntry{
 		wgpu.BindGroupEntry{
 			binding = 0,
-			buffer = canvas._camera_buffer,
+			buffer = canvas.core.core_buffer,
 			size = c.uint64_t(size_of(linalg.Matrix4x4f32)),
 		},
 	}
 
-	canvas._camera_bind_group = wgpu.DeviceCreateBindGroup(
+	canvas.core.core_bind_group = wgpu.DeviceCreateBindGroup(
 		renderer.device,
 		&wgpu.BindGroupDescriptor{
-			layout = canvas._camera_bind_group_layout,
+			layout = canvas.core.core_bind_group_layout,
 			entryCount = c.uint32_t(len(bind_entries)),
-			entries = cast([^]wgpu.BindGroupEntry)raw_data(bind_entries),
+			entries = ([^]wgpu.BindGroupEntry)(raw_data(bind_entries)),
 		},
 	)
 }
@@ -133,6 +133,34 @@ _canvas_init_pipelines :: proc(
 	canvas: ^Canvas,
 	renderer: ^Renderer,
 ) {
+	group_entries := []wgpu.BindGroupLayoutEntry{
+		wgpu.BindGroupLayoutEntry{
+			binding = 0,
+			visibility = {.Fragment},
+			texture = wgpu.TextureBindingLayout{
+				multisampled = false,
+				viewDimension = .D2,
+				sampleType = .Float,
+			},
+		},
+		wgpu.BindGroupLayoutEntry{
+			binding = 1,
+			visibility = {.Fragment},
+			sampler = wgpu.SamplerBindingLayout{
+				type = .Filtering,
+			},
+		},
+	}
+
+	canvas.core.texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+		renderer.device,
+		&wgpu.BindGroupLayoutDescriptor{
+			label = "CanvasImagePipelineBindGroupLayout",
+			entryCount = c.uint32_t(len(group_entries)),
+			entries = ([^]wgpu.BindGroupLayoutEntry)(raw_data(group_entries)),
+		},
+	)
+
 	vertex_attributes := CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES
 	instance_attributes := CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
 
@@ -152,179 +180,39 @@ _canvas_init_pipelines :: proc(
 	}
 
 	// Initialize primitive pipeline
-	{
-		using canvas._primitive_pipeline
 
-		if bind_group_layout != nil {
-			wgpu.BindGroupLayoutDrop(bind_group_layout)
-		}
-		if pipeline_layout != nil {
-			wgpu.PipelineLayoutDrop(pipeline_layout)
-		}
-		if pipeline != nil {
-			wgpu.RenderPipelineDrop(pipeline)
-		}
-
-		group_layouts := []wgpu.BindGroupLayout{
-			canvas._camera_bind_group_layout,
-		}
-
-		pipeline_layout = wgpu.DeviceCreatePipelineLayout(
-			renderer.device,
-			&wgpu.PipelineLayoutDescriptor{
-				label = "CanvasPrimitivePipelineLayout",
-				bindGroupLayoutCount = c.uint32_t(len(group_layouts)),
-				bindGroupLayouts = cast([^]wgpu.BindGroupLayout)raw_data(group_layouts),
+	renderer_pipeline_init(
+		renderer,
+		&canvas.core.primitive_pipeline,
+		Renderer_Pipeline_Descriptor{
+			label = "CanvasPrimitivePipeline",
+			shader = canvas.core.shader,
+			vertex_entry_point = "prim_vertex_main",
+			fragment_entry_point = "prim_fragment_main",
+			buffer_layouts = buffer_layouts,
+			bind_group_layouts = []wgpu.BindGroupLayout{
+				canvas.core.core_bind_group_layout,
 			},
-		)
-
-		pipeline = wgpu.DeviceCreateRenderPipeline(
-			renderer.device,
-			&wgpu.RenderPipelineDescriptor{
-				label = "CanvasPrimitivePipeline",
-				layout = pipeline_layout,
-				vertex = wgpu.VertexState{
-					module = canvas._core_shader,
-					entryPoint = "prim_vertex_main",
-					bufferCount = c.uint32_t(len(buffer_layouts)),
-					buffers = cast([^]wgpu.VertexBufferLayout)raw_data(buffer_layouts),
-				},
-				fragment = &wgpu.FragmentState{
-					module = canvas._core_shader,
-					entryPoint = "prim_fragment_main",
-					targetCount = 1,
-					targets = &wgpu.ColorTargetState{
-						format = renderer.render_texture_format,
-						blend = &wgpu.BlendState{
-							color = wgpu.BlendComponent{
-								srcFactor = .SrcAlpha,
-								dstFactor = .OneMinusSrcAlpha,
-								operation = .Add,
-							},
-							alpha = wgpu.BlendComponent{
-								srcFactor = .SrcAlpha,
-								dstFactor = .OneMinusSrcAlpha,
-								operation = .Add,
-							},
-						},
-						writeMask = wgpu.ColorWriteMaskFlagsAll,
-					},
-				},
-				primitive = wgpu.PrimitiveState{
-					topology = .TriangleList,
-					stripIndexFormat = .Undefined,
-					frontFace = .CW,
-					cullMode = .None,
-				},
-				multisample = wgpu.MultisampleState{
-					count = 1,
-					mask = wgpu.MultisampleStateMaskMax,
-				},
-			},
-		)
-	}
+		},
+	)
 
 	// Initialize image pipeline
-	{
-		using canvas._image_pipeline
 
-		if bind_group_layout != nil {
-			wgpu.BindGroupLayoutDrop(bind_group_layout)
-		}
-		if pipeline_layout != nil {
-			wgpu.PipelineLayoutDrop(pipeline_layout)
-		}
-		if pipeline != nil {
-			wgpu.RenderPipelineDrop(pipeline)
-		}
-
-		group_entries := []wgpu.BindGroupLayoutEntry{
-			wgpu.BindGroupLayoutEntry{
-				binding = 0,
-				visibility = {.Fragment},
-				texture = wgpu.TextureBindingLayout{
-					multisampled = false,
-					viewDimension = .D2,
-					sampleType = .Float,
-				},
+	renderer_pipeline_init(
+		renderer,
+		&canvas.core.image_pipeline,
+		Renderer_Pipeline_Descriptor{
+			label = "CanvasImagePipeline",
+			shader = canvas.core.shader,
+			vertex_entry_point = "img_vertex_main",
+			fragment_entry_point = "img_fragment_main",
+			buffer_layouts = buffer_layouts,
+			bind_group_layouts = []wgpu.BindGroupLayout{
+				canvas.core.core_bind_group_layout,
+				canvas.core.texture_bind_group_layout,
 			},
-			wgpu.BindGroupLayoutEntry{
-				binding = 1,
-				visibility = {.Fragment},
-				sampler = wgpu.SamplerBindingLayout{
-					type = .Filtering,
-				},
-			},
-		}
-
-		bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
-			renderer.device,
-			&wgpu.BindGroupLayoutDescriptor{
-				label = "CanvasImagePipelineBindGroupLayout",
-				entryCount = c.uint32_t(len(group_entries)),
-				entries = cast([^]wgpu.BindGroupLayoutEntry)raw_data(group_entries),
-			},
-		)
-
-		group_layouts := []wgpu.BindGroupLayout{
-			canvas._camera_bind_group_layout,
-			bind_group_layout,
-		}
-
-		pipeline_layout = wgpu.DeviceCreatePipelineLayout(
-			renderer.device,
-			&wgpu.PipelineLayoutDescriptor{
-				label = "CanvasImagePipelineLayout",
-				bindGroupLayoutCount = c.uint32_t(len(group_layouts)),
-				bindGroupLayouts = cast([^]wgpu.BindGroupLayout)raw_data(group_layouts),
-			},
-		)
-
-		pipeline = wgpu.DeviceCreateRenderPipeline(
-			renderer.device,
-			&wgpu.RenderPipelineDescriptor{
-				label = "CanvasImagePipeline",
-				layout = pipeline_layout,
-				vertex = wgpu.VertexState{
-					module = canvas._core_shader,
-					entryPoint = "img_vertex_main",
-					bufferCount = c.uint32_t(len(buffer_layouts)),
-					buffers = cast([^]wgpu.VertexBufferLayout)raw_data(buffer_layouts),
-				},
-				fragment = &wgpu.FragmentState{
-					module = canvas._core_shader,
-					entryPoint = "img_fragment_main",
-					targetCount = 1,
-					targets = &wgpu.ColorTargetState{
-						format = renderer.render_texture_format,
-						blend = &wgpu.BlendState{
-							color = wgpu.BlendComponent{
-								srcFactor = .SrcAlpha,
-								dstFactor = .OneMinusSrcAlpha,
-								operation = .Add,
-							},
-							alpha = wgpu.BlendComponent{
-								srcFactor = .SrcAlpha,
-								dstFactor = .OneMinusSrcAlpha,
-								operation = .Add,
-							},
-						},
-						writeMask = wgpu.ColorWriteMaskFlagsAll,
-					},
-				},
-				primitive = wgpu.PrimitiveState{
-					topology = .TriangleList,
-					stripIndexFormat = .Undefined,
-					frontFace = .CW,
-					cullMode = .None,
-				},
-				multisample = wgpu.MultisampleState{
-					count = 1,
-					mask = wgpu.MultisampleStateMaskMax,
-				},
-			},
-		)
-	}
+		},
+	)
 }
 
 _canvas_flush_commands :: proc(
@@ -333,15 +221,15 @@ _canvas_flush_commands :: proc(
 ) {
 	// Copy primitive vertices to buffer if it's a new rendering context
 	if renderer.fresh {
-		_canvas_init_camera(canvas, renderer)
+		_canvas_init_core_uniform(canvas, renderer)
 		_canvas_init_pipelines(canvas, renderer)
-		if canvas._primitive_vertices != nil {
-			wgpu.BufferDestroy(canvas._primitive_vertices)
-			wgpu.BufferDrop(canvas._primitive_vertices)
+		if canvas.core.primitive_vertices != nil {
+			wgpu.BufferDestroy(canvas.core.primitive_vertices)
+			wgpu.BufferDrop(canvas.core.primitive_vertices)
 		}
 		primitive_vertices := CANVAS_PRIMITIVE_VERTICES
 		vertices_size := len(primitive_vertices) * size_of(Canvas_Primitive_Vertex)
-		canvas._primitive_vertices = wgpu.DeviceCreateBuffer(
+		canvas.core.primitive_vertices = wgpu.DeviceCreateBuffer(
 			renderer.device,
 			&wgpu.BufferDescriptor{
 				usage = {.Vertex, .CopyDst},
@@ -350,17 +238,17 @@ _canvas_flush_commands :: proc(
 		)
 		wgpu.QueueWriteBuffer(
 			renderer.queue,
-			canvas._primitive_vertices,
+			canvas.core.primitive_vertices,
 			0,
 			raw_data(primitive_vertices),
 			c.size_t(vertices_size),
 		)
 	}
 
-	_dynamic_buffer_copy(&canvas._primitive_pipeline.instances, renderer)
-	_dynamic_buffer_copy(&canvas._image_pipeline.instances, renderer)
+	_dynamic_buffer_copy(&canvas.core.primitive_instances, renderer)
+	_dynamic_buffer_copy(&canvas.core.image_instances, renderer)
 
-	// TODO: don't re-send if it doesn't change?
+	// TODO: don't re-send if it doesn't change/better way of sending core data
 	{
 		w_s := 2.0 / f32(renderer.render_width)
 		h_s := 2.0 / f32(renderer.render_height)
@@ -373,7 +261,7 @@ _canvas_flush_commands :: proc(
 
 		wgpu.QueueWriteBuffer(
 			renderer.queue,
-			canvas._camera_buffer,
+			canvas.core.core_buffer,
 			0,
 			&window_to_device,
 			c.size_t(size_of(linalg.Matrix4x4f32)),
@@ -388,7 +276,7 @@ _canvas_flush_commands :: proc(
 	wgpu.RenderPassEncoderSetVertexBuffer(
 		renderer.render_pass_encoder,
 		0,
-		canvas._primitive_vertices,
+		canvas.core.primitive_vertices,
 		0,
 		wgpu.WHOLE_SIZE,
 	)
@@ -396,7 +284,7 @@ _canvas_flush_commands :: proc(
 	wgpu.RenderPassEncoderSetBindGroup(
 		renderer.render_pass_encoder,
 		0,
-		canvas._camera_bind_group,
+		canvas.core.core_bind_group,
 		0,
 		nil,
 	)
@@ -409,12 +297,12 @@ _canvas_flush_commands :: proc(
 		case Canvas_Draw_Primitive_Command:
 			wgpu.RenderPassEncoderSetPipeline(
 				renderer.render_pass_encoder,
-				canvas._primitive_pipeline.pipeline,
+				canvas.core.primitive_pipeline.pipeline,
 			)
 			wgpu.RenderPassEncoderSetVertexBuffer(
 				renderer.render_pass_encoder,
 				1,
-				canvas._primitive_pipeline.instances.ptr,
+				canvas.core.primitive_instances.ptr,
 				0,
 				wgpu.WHOLE_SIZE,
 			)
@@ -435,12 +323,12 @@ _canvas_flush_commands :: proc(
 		case Canvas_Draw_Image_Command:
 			wgpu.RenderPassEncoderSetPipeline(
 				renderer.render_pass_encoder,
-				canvas._image_pipeline.pipeline,
+				canvas.core.image_pipeline.pipeline,
 			)
 			wgpu.RenderPassEncoderSetVertexBuffer(
 				renderer.render_pass_encoder,
 				1,
-				canvas._image_pipeline.instances.ptr,
+				canvas.core.image_instances.ptr,
 				0,
 				wgpu.WHOLE_SIZE,
 			)
