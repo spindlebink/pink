@@ -5,15 +5,15 @@ import "wgpu"
 
 DYNAMIC_BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
-Dynamic_Buffer :: struct($Data: typeid) {
+Renderer_Buffer :: struct($Data: typeid) {
 	ptr: wgpu.Buffer,
 	size: int,
 	data: [dynamic]Data,
 	usage_flags: wgpu.BufferUsageFlags,
 }
 
-_dynamic_buffer_destroy :: proc(
-	buffer: ^Dynamic_Buffer($Data),
+_renderer_buffer_destroy :: proc(
+	buffer: ^Renderer_Buffer($Data),
 ) {
 	if buffer.ptr != nil {
 		wgpu.BufferDestroy(buffer.ptr)
@@ -22,8 +22,8 @@ _dynamic_buffer_destroy :: proc(
 	delete(buffer.data)
 }
 
-_dynamic_buffer_copy :: proc(
-	buffer: ^Dynamic_Buffer($Data),
+_renderer_buffer_copy :: proc(
+	buffer: ^Renderer_Buffer($Data),
 	renderer: ^Renderer,
 	clear_on_finished := true,
 ) {

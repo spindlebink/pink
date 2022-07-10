@@ -22,10 +22,10 @@ Canvas_Core :: struct {
 	
 	primitive_vertices: wgpu.Buffer,
 	
-	primitive_instances: Dynamic_Buffer(Canvas_Primitive_Instance),
+	primitive_instances: Renderer_Buffer(Canvas_Primitive_Instance),
 	primitive_pipeline: Renderer_Pipeline,
 
-	image_instances: Dynamic_Buffer(Canvas_Primitive_Instance),
+	image_instances: Renderer_Buffer(Canvas_Primitive_Instance),
 	image_pipeline: Renderer_Pipeline,
 }
 
@@ -72,8 +72,8 @@ _canvas_destroy :: proc(
 	renderer_pipeline_deinit(&canvas.core.primitive_pipeline)
 	renderer_pipeline_deinit(&canvas.core.image_pipeline)
 
-	_dynamic_buffer_destroy(&canvas.core.primitive_instances)
-	_dynamic_buffer_destroy(&canvas.core.image_instances)
+	_renderer_buffer_destroy(&canvas.core.primitive_instances)
+	_renderer_buffer_destroy(&canvas.core.image_instances)
 
 	wgpu.ShaderModuleDrop(canvas.core.shader)
 	delete(canvas._draw_commands)
@@ -245,8 +245,8 @@ _canvas_flush_commands :: proc(
 		)
 	}
 
-	_dynamic_buffer_copy(&canvas.core.primitive_instances, renderer)
-	_dynamic_buffer_copy(&canvas.core.image_instances, renderer)
+	_renderer_buffer_copy(&canvas.core.primitive_instances, renderer)
+	_renderer_buffer_copy(&canvas.core.image_instances, renderer)
 
 	// TODO: don't re-send if it doesn't change/better way of sending core data
 	{
