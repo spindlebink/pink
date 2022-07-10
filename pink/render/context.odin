@@ -3,7 +3,7 @@ package pink_render
 import "core:c"
 import "core:fmt"
 import sdl "vendor:sdl2"
-import "../wgpu"
+import "wgpu"
 
 // A WGPU rendering context, bringing together all WGPU components necessary to
 // draw things to the screen. Context beyond these members (i.e. pipelines) is
@@ -17,6 +17,7 @@ Context :: struct {
 	command_encoder: wgpu.CommandEncoder,
 	render_texture_format: wgpu.TextureFormat,
 	render_pass_encoder: wgpu.RenderPassEncoder,
+	basic_texture_bind_group_layout: wgpu.BindGroupLayout,
 	swap_texture_view: wgpu.TextureView,
 	swap_chain_expired: bool,
 	render_width: u32,
@@ -146,6 +147,34 @@ context_init :: proc(
 		ren.adapter,
 	)
 
+	group_entries := []wgpu.BindGroupLayoutEntry{
+		wgpu.BindGroupLayoutEntry{
+			binding = 0,
+			visibility = {.Fragment},
+			texture = wgpu.TextureBindingLayout{
+				multisampled = false,
+				viewDimension = .D2,
+				sampleType = .Float,
+			},
+		},
+		wgpu.BindGroupLayoutEntry{
+			binding = 1,
+			visibility = {.Fragment},
+			sampler = wgpu.SamplerBindingLayout{
+				type = .Filtering,
+			},
+		},
+	}
+
+	ren.basic_texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+		ren.device,
+		&wgpu.BindGroupLayoutDescriptor{
+			label = "CanvasImagePipelineBindGroupLayout",
+			entryCount = c.uint32_t(len(group_entries)),
+			entries = ([^]wgpu.BindGroupLayoutEntry)(raw_data(group_entries)),
+		},
+	)
+
 	ren.fresh = true
 	ren.swap_chain_expired = true
 
@@ -158,12 +187,41 @@ context_destroy :: proc(
 ) -> bool {
 	ren.exiting = true
 
+	wgpu.BindGroupLayoutDrop(ren.basic_texture_bind_group_layout)
+
 	if ren.device != nil {
 		wgpu.DeviceDestroy(ren.device)
 		wgpu.DeviceDrop(ren.device)
 	}
 
 	return true
+}
+
+// Creates a texture bind group based off the basic texture bind group layout.
+context_create_basic_texture_bind_group :: proc(
+	ren: ^Context,
+	view: wgpu.TextureView,
+	sampler: wgpu.Sampler,
+) -> wgpu.BindGroup {
+	entries := []wgpu.BindGroupEntry{
+		wgpu.BindGroupEntry{
+			binding = 0,
+			textureView = view,
+		},
+		wgpu.BindGroupEntry{
+			binding = 1,
+			sampler = sampler,
+		},
+	}
+
+	return wgpu.DeviceCreateBindGroup(
+		ren.device,
+		&wgpu.BindGroupDescriptor{
+			layout = ren.basic_texture_bind_group_layout,
+			entryCount = c.uint32_t(len(entries)),
+			entries = ([^]wgpu.BindGroupEntry)(raw_data(entries)),
+		},
+	)
 }
 
 // Begins a ren context frame.

@@ -1,7 +1,7 @@
 package pink_render
 
 import "core:c"
-import "../wgpu"
+import "wgpu"
 
 // Structure to hold a pipeline layout and render pipeline as a bundle.
 Pipeline :: struct {

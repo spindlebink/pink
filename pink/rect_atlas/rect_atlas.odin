@@ -1,11 +1,21 @@
-package pink
+package rect_atlas
 
-Rect_Atlas :: struct {
-	spaces: [dynamic]Recti,
+import "core:intrinsics"
+
+Atlas :: struct($R: typeid)
+	where intrinsics.type_has_field(R, "x") &&
+				intrinsics.type_has_field(R, "y") &&
+				intrinsics.type_has_field(R, "w") &&
+				intrinsics.type_has_field(R, "h") &&
+				intrinsics.type_is_numeric(intrinsics.type_field_type(R, "x")) &&
+				intrinsics.type_is_numeric(intrinsics.type_field_type(R, "y")) &&
+				intrinsics.type_is_numeric(intrinsics.type_field_type(R, "w")) &&
+				intrinsics.type_is_numeric(intrinsics.type_field_type(R, "h")) {
+	spaces: [dynamic]R,
 }
 
 // Cases for splitting empty space in an atlas.
-Rect_Atlas_Split_Result :: enum {
+Atlas_Split_Result :: enum {
 	Too_Small,
 	Just_Right,
 	Once,
@@ -13,28 +23,42 @@ Rect_Atlas_Split_Result :: enum {
 }
 
 // Clears a rect atlas and sets it up for packing with a given space size.
-rect_atlas_clear :: proc(atlas: ^Rect_Atlas, side_size: int) {
+atlas_clear :: proc(
+	atlas: ^Atlas($R),
+	side_size: $N,
+) where intrinsics.type_is_numeric(N) {
 	clear(&atlas.spaces)
-	append(&atlas.spaces, Recti{0, 0, side_size, side_size})
+	append(&atlas.spaces, R{
+		x = 0,
+		y = 0,
+		w = side_size,
+		h = side_size,
+	})
 }
 
 // Destroys a rect atlas.
-rect_atlas_destroy :: proc(atlas: ^Rect_Atlas) {
+atlas_destroy :: proc(
+	atlas: ^Atlas($R),
+) {
 	delete(atlas.spaces)
 }
 
 // Packs a rectangle into an atlas if it fits. Returns whether or not it could
 // be packed. Sets `rect`'s `x`/`y` if it fits.
-rect_atlas_pack :: proc(atlas: ^Rect_Atlas, rect: ^Recti) -> bool {
+atlas_pack :: proc(
+	atlas: ^Atlas($R),
+	rect: ^R,
+) -> bool {
 	for i := len(atlas.spaces) - 1; i >= 0; i -= 1 {
 		space := atlas.spaces[i]
 		target_space := i
 		if rect.w <= space.w && rect.h <= space.h {
 			atlas.spaces[target_space] = atlas.spaces[len(atlas.spaces) - 1]
 			pop(&atlas.spaces)
-			small_split := Recti{}
-			big_split := Recti{}
-			split_result := _rect_atlas_split(
+			small_split := R{}
+			big_split := R{}
+			split_result := _atlas_split(
+				atlas,
 				rect^,
 				space,
 				&small_split,
@@ -63,12 +87,16 @@ rect_atlas_pack :: proc(atlas: ^Rect_Atlas, rect: ^Recti) -> bool {
 
 // Split a space to fit a rectangle into it, retrieving the size for the smaller
 // and larger splits if they're calculated.
-_rect_atlas_split :: proc(
-	rect: Recti,
-	space: Recti,
-	small: ^Recti,
-	big: ^Recti,
-) -> Rect_Atlas_Split_Result {
+//
+// We take an atlas parameter but don't use it so that we can use its type
+// specification.
+_atlas_split :: proc(
+	atlas: ^Atlas($R),
+	rect: R,
+	space: R,
+	small: ^R,
+	big: ^R,
+) -> Atlas_Split_Result {
 	free_w, free_h := space.w - rect.w, space.h - rect.h
 
 	// Rect won't fit into space/rect fits perfectly into space

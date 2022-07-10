@@ -3,7 +3,7 @@ package pink
 import "core:c"
 import "core:fmt"
 import sdl "vendor:sdl2"
-import "wgpu"
+import "render/wgpu"
 
 // Window information.
 Window :: struct {

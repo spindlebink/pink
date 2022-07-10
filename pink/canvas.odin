@@ -3,16 +3,18 @@ package pink
 import "core:c"
 import "core:fmt"
 import "core:math/linalg"
-import "wgpu"
 import "render"
+import "render/wgpu"
 
+// Canvas context for immediate-mode rendering.
 Canvas :: struct {
+	draw_state: Canvas_Draw_State,
 	core: Canvas_Core,
-	_draw_state: Canvas_Draw_State,
-	_draw_commands: [dynamic]Canvas_Draw_Command,
 }
 
+// Internal canvas state.
 Canvas_Core :: struct {	
+	draw_commands: [dynamic]Canvas_Draw_Command,
 	shader: wgpu.ShaderModule,
 
 	texture_bind_group_layout: wgpu.BindGroupLayout,
@@ -30,6 +32,7 @@ Canvas_Core :: struct {
 	image_pipeline: render.Pipeline,
 }
 
+// Canvas's current color and transform.
 Canvas_Draw_State :: struct {
 	color: Color,
 }
@@ -60,7 +63,7 @@ _canvas_init :: proc(
 		},
 	)
 
-	canvas._draw_state.color = {1.0, 1.0, 1.0, 1.0}
+	canvas.draw_state.color = {1.0, 1.0, 1.0, 1.0}
 
 	canvas.core.primitive_instances.usage_flags = {.Vertex, .CopyDst}
 	canvas.core.image_instances.usage_flags = {.Vertex, .CopyDst}
@@ -77,7 +80,7 @@ _canvas_destroy :: proc(
 	render.buffer_destroy(&canvas.core.image_instances)
 
 	wgpu.ShaderModuleDrop(canvas.core.shader)
-	delete(canvas._draw_commands)
+	delete(canvas.core.draw_commands)
 }
 
 _canvas_init_core_uniform :: proc(
@@ -246,8 +249,8 @@ _canvas_flush_commands :: proc(
 		)
 	}
 
-	render.buffer_queue_copy_data(&canvas.core.primitive_instances, renderer)
-	render.buffer_queue_copy_data(&canvas.core.image_instances, renderer)
+	render.buffer_queue_copy_data(renderer, &canvas.core.primitive_instances)
+	render.buffer_queue_copy_data(renderer, &canvas.core.image_instances)
 
 	// TODO: don't re-send if it doesn't change/better way of sending core data
 	{
@@ -290,8 +293,8 @@ _canvas_flush_commands :: proc(
 		nil,
 	)
 
-	for i := 0; i < len(canvas._draw_commands); i += 1 {
-		command := canvas._draw_commands[i]
+	for i := 0; i < len(canvas.core.draw_commands); i += 1 {
+		command := canvas.core.draw_commands[i]
 
 		switch in command.data {
 		
@@ -339,7 +342,6 @@ _canvas_flush_commands :: proc(
 				1,
 				_image_fetch_bind_group(
 					command.data.(Canvas_Draw_Image_Command).image,
-					canvas,
 					renderer,
 				),
 				0,
@@ -359,5 +361,5 @@ _canvas_flush_commands :: proc(
 
 	}
 
-	clear(&canvas._draw_commands)
+	clear(&canvas.core.draw_commands)
 }

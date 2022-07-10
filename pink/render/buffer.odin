@@ -1,7 +1,7 @@
 package pink_render
 
 import "core:c"
-import "../wgpu"
+import "wgpu"
 
 BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
@@ -23,8 +23,8 @@ buffer_destroy :: proc(
 }
 
 buffer_queue_copy_data :: proc(
-	buffer: ^Buffer($Data),
 	renderer: ^Context,
+	buffer: ^Buffer($Data),
 	clear_on_finished := true,
 ) {
 	new_size := len(buffer.data) * size_of(Data)

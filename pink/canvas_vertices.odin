@@ -1,7 +1,7 @@
 package pink
 
 import "core:c"
-import "wgpu"
+import "render/wgpu"
 
 Canvas_Primitive_Vertex :: struct {
 	position: [2]f32,

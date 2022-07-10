@@ -1,7 +1,7 @@
 package pink
 
 import "core:reflect"
-import "wgpu"
+import "render/wgpu"
 
 // Data required for a primitive draw command.
 Canvas_Draw_Primitive_Command :: struct {
@@ -28,7 +28,7 @@ canvas_set_color :: proc(
 	canvas: ^Canvas,
 	color: Color,
 ) {
-	canvas._draw_state.color = color
+	canvas.draw_state.color = color
 }
 
 canvas_draw_rect :: proc(
@@ -37,16 +37,16 @@ canvas_draw_rect :: proc(
 	rotation: f32 = 0.0,
 ) {
 	append(
-		&canvas._primitive_pipeline.instances.data,
+		&canvas.core.primitive_instances.data,
 		Canvas_Primitive_Instance{
 			translation = {x + width * 0.5, -y - height * 0.5},
 			scale = {width * 0.5, height * 0.5},
 			rotation = rotation,
-			modulation = cast([4]f32)canvas._draw_state.color,
+			modulation = cast([4]f32)canvas.draw_state.color,
 		},
 	)
 	_canvas_draw_commands_append(
-		&canvas._draw_commands,
+		&canvas.core.draw_commands,
 		Canvas_Draw_Command{
 			data = Canvas_Draw_Primitive_Command{
 				type = .Rect,
@@ -68,16 +68,16 @@ canvas_draw_image :: proc(
 	if width < 0 do width = f32(image.width)
 	if height < 0 do height = f32(image.height)
 	append(
-		&canvas._image_pipeline.instances.data,
+		&canvas.core.image_instances.data,
 		Canvas_Primitive_Instance{
 			translation = {x + width * 0.5, -y - height * 0.5},
 			scale = {width * 0.5, height * 0.5},
 			rotation = rotation,
-			modulation = cast([4]f32)canvas._draw_state.color,
+			modulation = cast([4]f32)canvas.draw_state.color,
 		},
 	)
 	_canvas_draw_commands_append(
-		&canvas._draw_commands,
+		&canvas.core.draw_commands,
 		Canvas_Draw_Command{
 			data = Canvas_Draw_Image_Command{
 				image = image,
@@ -109,8 +109,8 @@ _canvas_draw_commands_append :: proc(
 				}
 				
 			case Canvas_Draw_Image_Command:
-				cmd_img_hash := command.data.(Canvas_Draw_Image_Command).image._hash
-				top_img_hash := top.data.(Canvas_Draw_Image_Command).image._hash
+				cmd_img_hash := command.data.(Canvas_Draw_Image_Command).image.core.hash
+				top_img_hash := top.data.(Canvas_Draw_Image_Command).image.core.hash
 				if cmd_img_hash == top_img_hash {
 					top.times += command.times
 					return
