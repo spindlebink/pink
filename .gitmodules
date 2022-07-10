@@ -1,3 +1,6 @@
 [submodule "pink/wgpu"]
 	path = pink/wgpu
 	url = https://codeberg.org/spindlebink/wgpu-odin
+[submodule "pink/fontdue"]
+	path = pink/fontdue
+	url = https://codeberg.org/spindlebink/fontdue-odin
