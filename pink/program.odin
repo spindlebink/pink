@@ -77,9 +77,9 @@ program_configure :: proc(
 	program.window.height = config.window_height
 	
 	if config.framerate_cap > 0.0 {
-		program.clock._frame_time_cap_ms = 1000.0 / config.framerate_cap
+		program.clock.core.frame_time_cap_ms = 1000.0 / config.framerate_cap
 	} else {
-		program.clock._frame_time_cap_ms = 0.0
+		program.clock.core.frame_time_cap_ms = 0.0
 	}
 	
 	if config.fixed_framerate > 0.0 {
@@ -143,10 +143,10 @@ program_run :: proc(
 	if program.hooks.on_ready != nil do program.hooks.on_ready()
 	
 	first_frame := true
-	_clock_reset(&program.clock)
+	clock_reset(&program.clock)
 
 	for !program.quit_at_frame_end {
-		_clock_tick(&program.clock)
+		clock_tick(&program.clock)
 		
 		size_changed, minimized, maximized := false, false, false
 		event: sdl.Event
@@ -200,7 +200,7 @@ program_run :: proc(
 		
 		if program.hooks.on_update != nil do program.hooks.on_update(program.clock.delta_ms)
 		if program.hooks.on_update_fixed != nil {
-			for i := 0; i < program.clock._fixed_update_count; i += 1 {
+			for i := 0; i < program.clock.core.fixed_update_count; i += 1 {
 				program.hooks.on_update_fixed(program.clock.delta_ms_fixed)
 			}
 		}
