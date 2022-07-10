@@ -12,8 +12,12 @@ Window :: struct {
 	height: int,
 	minimized: bool,
 
-	_sdl_handle: ^sdl.Window,
-	_sdl_flags: sdl.WindowFlags,
+	core: Window_Core,
+}
+
+Window_Core :: struct {
+	sdl_handle: ^sdl.Window,
+	sdl_flags: sdl.WindowFlags,
 }
 
 // Initializes the game window.
@@ -22,19 +26,19 @@ _window_init :: proc(
 ) -> bool {
 	when ODIN_OS == .Linux {
 		// TODO: do we actually need this? WGPU initializes regardless. More research.
-		window._sdl_flags += {.VULKAN}
+		window.core.sdl_flags += {.VULKAN}
 	}
 	
-	window._sdl_handle = sdl.CreateWindow(
+	window.core.sdl_handle = sdl.CreateWindow(
 		cast(cstring) raw_data(window.title),
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
 		i32(window.width),
 		i32(window.height),
-		window._sdl_flags,
+		window.core.sdl_flags,
 	)
 	
-	if window._sdl_handle == nil {
+	if window.core.sdl_handle == nil {
 		fmt.eprintln("Failed to create window")
 		return false
 	}
@@ -49,7 +53,7 @@ _window_destroy :: proc(
 	window: ^Window,
 ) -> bool {
 	delete(window.title)
-	sdl.DestroyWindow(window._sdl_handle)
+	sdl.DestroyWindow(window.core.sdl_handle)
 	
 	return true
 }
@@ -59,11 +63,11 @@ _window_fetch_info :: proc(
 	window: ^Window,
 ) {
 	w, h: i32
-	window._sdl_flags =
-		transmute(sdl.WindowFlags)sdl.GetWindowFlags(window._sdl_handle)
-	sdl.GetWindowSize(window._sdl_handle, &w, &h)
+	window.core.sdl_flags =
+		transmute(sdl.WindowFlags)sdl.GetWindowFlags(window.core.sdl_handle)
+	sdl.GetWindowSize(window.core.sdl_handle, &w, &h)
 	window.width, window.height = int(w), int(h)
-	window.minimized = .MINIMIZED in window._sdl_flags
+	window.minimized = .MINIMIZED in window.core.sdl_flags
 }
 
 // Obtains a WGPU surface from an initialized window.
@@ -76,7 +80,7 @@ _window_create_wgpu_surface :: proc(
 		wm_info: sdl.SysWMinfo
 		sdl.GetVersion(&wm_info.version)
 
-		if !sdl.GetWindowWMInfo(window._sdl_handle, &wm_info) {
+		if !sdl.GetWindowWMInfo(window.core.sdl_handle, &wm_info) {
 			fmt.eprintln("Could not obtain window manager info from window")
 			return nil, false
 		}

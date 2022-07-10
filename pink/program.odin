@@ -20,8 +20,12 @@ Program :: struct {
 	canvas: Canvas,
 	quit_at_frame_end: bool,
 
-	_renderer: Renderer,
-	_phase: enum {
+	core: Program_Core,
+}
+
+Program_Core :: struct {
+	renderer: Renderer,
+	phase: enum {
 		Limbo,
 		Configured,
 		Loaded,
@@ -64,7 +68,7 @@ program_configure :: proc(
 	program: ^Program,
 	config := PROGRAM_DEFAULT_CONFIG,
 ) -> bool {
-	if program._phase != .Limbo {
+	if program.core.phase != .Limbo {
 		fmt.eprintln("program_configure must be called before any other lifetime procedures")
 		return false
 	}
@@ -84,10 +88,10 @@ program_configure :: proc(
 		program.clock.delta_ms_fixed = 0.0
 	}
 	
-	program._renderer.vsync = config.vsync_enabled
-	program.window._sdl_flags += {.RESIZABLE}
+	program.core.renderer.vsync = config.vsync_enabled
+	program.window.core.sdl_flags += {.RESIZABLE}
 	
-	program._phase = .Configured
+	program.core.phase = .Configured
 	return true
 }
 
@@ -95,10 +99,10 @@ program_configure :: proc(
 program_load :: proc(
 	program: ^Program,
 ) -> bool {
-	if program._phase != .Configured && program._phase != .Limbo {
+	if program.core.phase != .Configured && program.core.phase != .Limbo {
 		fmt.eprintln("program_load must be called before program_run or program_exit")
 		return false
-	} else if program._phase == .Limbo {
+	} else if program.core.phase == .Limbo {
 		program_configure(program)
 	}
 	
@@ -112,18 +116,18 @@ program_load :: proc(
 	if !win_success do return false
 
 	if surface, ok := _window_create_wgpu_surface(&program.window); ok {
-		program._renderer.surface = surface
-		_renderer_init(&program._renderer)
+		program.core.renderer.surface = surface
+		_renderer_init(&program.core.renderer)
 	} else {
 		fmt.eprintln("Failed to obtain render surface from window")
 		return false
 	}
 
-	_canvas_init(&program.canvas, &program._renderer)
+	_canvas_init(&program.canvas, &program.core.renderer)
 
 	if program.hooks.on_load != nil do program.hooks.on_load()
 	
-	program._phase = .Loaded
+	program.core.phase = .Loaded
 	return true
 }
 
@@ -131,7 +135,7 @@ program_load :: proc(
 program_run :: proc(
 	program: ^Program,
 ) -> bool {
-	if program._phase != .Loaded {
+	if program.core.phase != .Loaded {
 		fmt.eprintln("program_run called before program_load")
 		return false
 	}
@@ -186,13 +190,13 @@ program_run :: proc(
 		if first_frame || size_changed || minimized || maximized {
 			_window_fetch_info(&program.window)
 			_renderer_resize(
-				&program._renderer,
+				&program.core.renderer,
 				program.window.width,
 				program.window.height,
 			)
 		}
 		
-		_renderer_begin_frame(&program._renderer)
+		_renderer_begin_frame(&program.core.renderer)
 		
 		if program.hooks.on_update != nil do program.hooks.on_update(program.clock.delta_ms)
 		if program.hooks.on_update_fixed != nil {
@@ -203,8 +207,8 @@ program_run :: proc(
 		
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
-		_canvas_flush_commands(&program.canvas, &program._renderer)
-		_renderer_end_frame(&program._renderer)
+		_canvas_flush_commands(&program.canvas, &program.core.renderer)
+		_renderer_end_frame(&program.core.renderer)
 
 		first_frame = false
 	}
@@ -217,7 +221,7 @@ program_exit :: proc(
 	program: ^Program,
 ) -> bool {
 	_canvas_destroy(&program.canvas)
-	_renderer_destroy(&program._renderer)
+	_renderer_destroy(&program.core.renderer)
 	_window_destroy(&program.window)
 	sdl.Quit()
 	
