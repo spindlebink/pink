@@ -2,6 +2,7 @@ package pink_render
 
 import "core:c"
 import "core:fmt"
+import "core:math/linalg"
 import sdl "vendor:sdl2"
 import "wgpu"
 
@@ -329,5 +330,18 @@ context_resize :: proc(
 		ren.swap_chain_expired = true
 		ren.render_width = u32(width)
 		ren.render_height = u32(height)
+	}
+}
+
+context_compute_window_to_device_matrix :: #force_inline proc(
+	ren: ^Context,
+) -> linalg.Matrix4x4f32 {
+	w_s := 2.0 / f32(ren.render_width)
+	h_s := 2.0 / f32(ren.render_height)
+	return linalg.Matrix4x4f32{
+		w_s, 0.0, 0.0, 0.0,
+		0.0, h_s, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		-1.0, 1.0, 0.0, 1.0,
 	}
 }

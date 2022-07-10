@@ -5,15 +5,34 @@ import "wgpu"
 
 BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
-Buffer :: struct($Data: typeid) {
+Vertex_Buffer :: struct($Data: typeid) {
 	ptr: wgpu.Buffer,
 	size: int,
 	data: [dynamic]Data,
 	usage_flags: wgpu.BufferUsageFlags,
 }
 
-buffer_destroy :: proc(
-	buffer: ^Buffer($Data),
+// Initializes a buffer.
+vbuffer_init :: proc(
+	renderer: ^Context,
+	buffer: ^Vertex_Buffer($Data),
+	initial_length := 0,
+) {
+	if initial_length > 0 {
+		buffer.size = initial_length * size_of(Data)
+		buffer.ptr = wgpu.DeviceCreateBuffer(
+			renderer.device,
+			&wgpu.BufferDescriptor{
+				usage = buffer.usage_flags,
+				size = c.uint64_t(initial_length * size_of(Data)),
+			},
+		)
+	}
+}
+
+// Destroys a buffer.
+vbuffer_destroy :: proc(
+	buffer: ^Vertex_Buffer($Data),
 ) {
 	if buffer.ptr != nil {
 		wgpu.BufferDestroy(buffer.ptr)
@@ -22,9 +41,11 @@ buffer_destroy :: proc(
 	delete(buffer.data)
 }
 
-buffer_queue_copy_data :: proc(
+// Copies data from `buffer.data` to the GPU-side buffer, resizing it if need
+// be.
+vbuffer_queue_copy_data :: proc(
 	renderer: ^Context,
-	buffer: ^Buffer($Data),
+	buffer: ^Vertex_Buffer($Data),
 	clear_on_finished := true,
 ) {
 	new_size := len(buffer.data) * size_of(Data)

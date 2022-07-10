@@ -1,12 +1,13 @@
 struct Vertex {
     @location(0) position: vec2<f32>,
+    @location(1) uv_indices: vec2<u32>,
 };
 
 struct Instance {
-    @location(1) translation: vec2<f32>,
-    @location(2) scale: vec2<f32>,
-    @location(3) rotation: f32,
-    @location(4) modulation: vec4<f32>,
+    @location(2) translation: vec2<f32>,
+    @location(3) scale: vec2<f32>,
+    @location(4) rotation: f32,
+    @location(5) color: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -28,7 +29,10 @@ fn vertex_main(
     instance: Instance,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.modulation = vec4<f32>(pk_linear_to_gamma(instance.modulation.rgb) * instance.modulation.a, instance.modulation.a);
+    out.modulation = vec4<f32>(
+        pk_linear_to_gamma(instance.color.rgb),
+        instance.color.a,
+    );
     
     out.position = vec4<f32>(
         pk_transform_2d(
@@ -38,7 +42,7 @@ fn vertex_main(
             instance.rotation,
         ),
         1.0, 1.0,
-    ) * pk_data.window_to_device;
+    ) * pk_canvas_state.window_to_device;
     out.uv = vec2<f32>(1.0, 1.0) - (vertex.position + vec2<f32>(1.0, 1.0)) / 2.0;
 
     return out;

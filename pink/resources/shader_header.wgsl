@@ -22,8 +22,8 @@ fn pk_transform_2d(
     );
 };
 
-struct PKCoreData {
+struct CanvasState {
     window_to_device: mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<uniform> pk_data: PKCoreData;
+@group(0) @binding(0) var<uniform> pk_canvas_state: CanvasState;

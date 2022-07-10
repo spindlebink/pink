@@ -125,8 +125,6 @@ program_load :: proc(
 		return false
 	}
 
-	_canvas_init(&program.canvas, &program.core.renderer)
-
 	if program.hooks.on_load != nil do program.hooks.on_load()
 	
 	program.core.phase = .Loaded
@@ -189,7 +187,7 @@ program_run :: proc(
 			}
 		}
 		
-		if first_frame || size_changed || minimized || maximized {
+		if first_frame || size_changed || maximized {
 			_window_fetch_info(&program.window)
 			render.context_resize(
 				&program.core.renderer,
@@ -209,7 +207,7 @@ program_run :: proc(
 		
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
-		_canvas_flush_commands(&program.canvas, &program.core.renderer)
+		_canvas_flush(&program.canvas, &program.core.renderer)
 		render.context_end_frame(&program.core.renderer)
 
 		first_frame = false
