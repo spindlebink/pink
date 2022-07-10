@@ -15,7 +15,6 @@ Canvas :: struct {
 // Internal canvas state.
 Canvas_Core :: struct {	
 	draw_commands: [dynamic]Canvas_Draw_Command,
-	shader: wgpu.ShaderModule,
 
 	texture_bind_group_layout: wgpu.BindGroupLayout,
 	
@@ -25,9 +24,11 @@ Canvas_Core :: struct {
 	
 	primitive_vertices: wgpu.Buffer,
 	
+	primitive_shader: wgpu.ShaderModule,
 	primitive_instances: render.Buffer(Canvas_Primitive_Instance),
 	primitive_pipeline: render.Pipeline,
 
+	image_shader: wgpu.ShaderModule,
 	image_instances: render.Buffer(Canvas_Primitive_Instance),
 	image_pipeline: render.Pipeline,
 }
@@ -51,16 +52,15 @@ _canvas_init :: proc(
 	canvas: ^Canvas,
 	renderer: ^render.Context,
 ) {
-	canvas.core.shader = wgpu.DeviceCreateShaderModule(
-		renderer.device,
-		&wgpu.ShaderModuleDescriptor{
-			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.ShaderModuleWGSLDescriptor{
-				chain = wgpu.ChainedStruct{
-					sType = .ShaderModuleWGSLDescriptor,
-				},
-				code = cast(cstring)raw_data(#load("res/shader.wgsl")),
-			},
-		},
+	canvas.core.primitive_shader = render.shader_module_create(
+		renderer,
+		SHADER_HEADER,
+		#load("resources/primitive_shader.wgsl"),
+	)
+	canvas.core.image_shader = render.shader_module_create(
+		renderer,
+		SHADER_HEADER,
+		#load("resources/image_shader.wgsl"),
 	)
 
 	canvas.draw_state.color = {1.0, 1.0, 1.0, 1.0}
@@ -79,7 +79,8 @@ _canvas_destroy :: proc(
 	render.buffer_destroy(&canvas.core.primitive_instances)
 	render.buffer_destroy(&canvas.core.image_instances)
 
-	wgpu.ShaderModuleDrop(canvas.core.shader)
+	wgpu.ShaderModuleDrop(canvas.core.primitive_shader)
+	wgpu.ShaderModuleDrop(canvas.core.image_shader)
 	delete(canvas.core.draw_commands)
 }
 
@@ -137,33 +138,7 @@ _canvas_init_pipelines :: proc(
 	canvas: ^Canvas,
 	renderer: ^render.Context,
 ) {
-	group_entries := []wgpu.BindGroupLayoutEntry{
-		wgpu.BindGroupLayoutEntry{
-			binding = 0,
-			visibility = {.Fragment},
-			texture = wgpu.TextureBindingLayout{
-				multisampled = false,
-				viewDimension = .D2,
-				sampleType = .Float,
-			},
-		},
-		wgpu.BindGroupLayoutEntry{
-			binding = 1,
-			visibility = {.Fragment},
-			sampler = wgpu.SamplerBindingLayout{
-				type = .Filtering,
-			},
-		},
-	}
-
-	canvas.core.texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
-		renderer.device,
-		&wgpu.BindGroupLayoutDescriptor{
-			label = "CanvasImagePipelineBindGroupLayout",
-			entryCount = c.uint32_t(len(group_entries)),
-			entries = ([^]wgpu.BindGroupLayoutEntry)(raw_data(group_entries)),
-		},
-	)
+	canvas.core.texture_bind_group_layout = renderer.basic_texture_bind_group_layout
 
 	vertex_attributes := CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES
 	instance_attributes := CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
@@ -190,9 +165,9 @@ _canvas_init_pipelines :: proc(
 		&canvas.core.primitive_pipeline,
 		render.Pipeline_Descriptor{
 			label = "CanvasPrimitivePipeline",
-			shader = canvas.core.shader,
-			vertex_entry_point = "prim_vertex_main",
-			fragment_entry_point = "prim_fragment_main",
+			shader = canvas.core.primitive_shader,
+			vertex_entry_point = "vertex_main",
+			fragment_entry_point = "fragment_main",
 			buffer_layouts = buffer_layouts,
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.core_bind_group_layout,
@@ -207,9 +182,9 @@ _canvas_init_pipelines :: proc(
 		&canvas.core.image_pipeline,
 		render.Pipeline_Descriptor{
 			label = "CanvasImagePipeline",
-			shader = canvas.core.shader,
-			vertex_entry_point = "img_vertex_main",
-			fragment_entry_point = "img_fragment_main",
+			shader = canvas.core.image_shader,
+			vertex_entry_point = "vertex_main",
+			fragment_entry_point = "fragment_main",
 			buffer_layouts = buffer_layouts,
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.core_bind_group_layout,
@@ -253,7 +228,7 @@ _canvas_flush_commands :: proc(
 	render.buffer_queue_copy_data(renderer, &canvas.core.image_instances)
 
 	// TODO: don't re-send if it doesn't change/better way of sending core data
-	{
+	if renderer.size_changed {
 		w_s := 2.0 / f32(renderer.render_width)
 		h_s := 2.0 / f32(renderer.render_height)
 		window_to_device := linalg.Matrix4x4f32{

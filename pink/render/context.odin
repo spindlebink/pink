@@ -20,6 +20,7 @@ Context :: struct {
 	basic_texture_bind_group_layout: wgpu.BindGroupLayout,
 	swap_texture_view: wgpu.TextureView,
 	swap_chain_expired: bool,
+	size_changed: bool,
 	render_width: u32,
 	render_height: u32,
 	fresh: bool,
@@ -282,7 +283,8 @@ context_end_frame :: proc(
 	ren: ^Context,
 ) -> bool {
 	ren.fresh = false
-	
+	ren.size_changed = false
+
 	wgpu.RenderPassEncoderEnd(ren.render_pass_encoder)
 	commands := wgpu.CommandEncoderFinish(
 		ren.command_encoder,
@@ -322,7 +324,10 @@ context_resize :: proc(
 	width: int,
 	height: int,
 ) {
-	ren.swap_chain_expired = true
-	ren.render_width = u32(width)
-	ren.render_height = u32(height)
+	if u32(width) != ren.render_width || u32(height) != ren.render_height {
+		ren.size_changed = true
+		ren.swap_chain_expired = true
+		ren.render_width = u32(width)
+		ren.render_height = u32(height)
+	}
 }
