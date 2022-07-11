@@ -32,6 +32,11 @@ I can think of several levels of robustness/completeness for an eventual Pink te
 			* Doing so should be telegraphed from the font cache
 				* Ideally with a configurable, rotating set of cache textures which can be written to and swapped out on demand
 
+## Approach take 2
+
+* Make code pages/font caching manual using a `Code_Page` (or similar) type
+* We cache glyphs in the code page from any font, then to draw text, we pass the *code page* to the canvas text function rather than the font
+
 ## Prior Art
 
 * [FontStash](https://github.com/memononen/fontstash)
@@ -50,7 +55,7 @@ I can think of several levels of robustness/completeness for an eventual Pink te
 		}
 		```
 
-## Process
+### FontStash-style process
 
 Pink divides rendering into two phases: collecting draw commands and executing them on the GPU.
 
