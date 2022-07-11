@@ -28,7 +28,7 @@ _canvas_flush :: proc(
 		render.ubuffer_queue_copy_data(renderer, &canvas.core.draw_state_buffer)
 	}
 
-	// Common canvas state used for modulation, global transform, etc. will always
+	// Common canvas state used for global transform, etc. will always
 	// be in slot 0
 	wgpu.RenderPassEncoderSetBindGroup(
 		renderer.render_pass_encoder,
@@ -51,9 +51,9 @@ _canvas_flush :: proc(
 		// Draw primitive
 		//
 		
-		case Canvas_Draw_Primitive_Command:
+		case Canvas_Draw_Primitive_Cmd:
 			render.context_attach_painter(renderer, &canvas.core.prims)
-			switch command.data.(Canvas_Draw_Primitive_Command).type {
+			switch command.data.(Canvas_Draw_Primitive_Cmd).type {
 			case .Rect:
 				wgpu.RenderPassEncoderDraw(
 					renderer.render_pass_encoder,
@@ -70,14 +70,14 @@ _canvas_flush :: proc(
 		// Draw image
 		//
 		
-		case Canvas_Draw_Image_Command:
+		case Canvas_Draw_Img_Cmd:
 			render.context_attach_painter(renderer, &canvas.core.imgs)
 
 			wgpu.RenderPassEncoderSetBindGroup(
 				renderer.render_pass_encoder,
-				1,
+				1, // textures go in bind group 1 b/c global canvas state goes in 0--TODO: use constants for future-proofing
 				_image_fetch_bind_group(
-					command.data.(Canvas_Draw_Image_Command).image,
+					command.data.(Canvas_Draw_Img_Cmd).image,
 					renderer,
 				),
 				0,
@@ -98,14 +98,14 @@ _canvas_flush :: proc(
 		// Draw slice
 		//
 		
-		case Canvas_Draw_Slice_Command:
+		case Canvas_Draw_Slice_Cmd:
 			render.context_attach_painter(renderer, &canvas.core.slices)
 
 			wgpu.RenderPassEncoderSetBindGroup(
 				renderer.render_pass_encoder,
 				1,
 				_image_fetch_bind_group(
-					command.data.(Canvas_Draw_Slice_Command).image,
+					command.data.(Canvas_Draw_Slice_Cmd).image,
 					renderer,
 				),
 				0,

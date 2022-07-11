@@ -19,15 +19,7 @@ canvas_draw_rect :: proc(
 		&canvas.core.prims,
 		_canvas_prim_inst_from_transform(canvas, transform),
 	)
-	_canvas_append_command(
-		canvas,
-		Canvas_Command{
-			data = Canvas_Draw_Primitive_Command{
-				type = .Rect,
-			},
-			times = 1,
-		},
-	)
+	canvas_append_cmd(canvas, Canvas_Draw_Primitive_Cmd{.Rect})
 }
 
 canvas_draw_image :: proc(
@@ -44,15 +36,7 @@ canvas_draw_image :: proc(
 			primitive_instance = _canvas_prim_inst_from_transform(canvas, transform),
 		},
 	)
-	_canvas_append_command(
-		canvas,
-		Canvas_Command{
-			data = Canvas_Draw_Image_Command{
-				image = image,
-			},
-			times = 1,
-		},
-	)
+	canvas_append_cmd(canvas, Canvas_Draw_Img_Cmd{image})
 }
 
 canvas_draw_slice :: proc(
@@ -76,13 +60,5 @@ canvas_draw_slice :: proc(
 			uv_extents = {uv_x, uv_y, uv_x + f32(slice.w) / fw, uv_y + f32(slice.h) / fh},
 		},
 	)
-	_canvas_append_command(
-		canvas,
-		Canvas_Command{
-			data = Canvas_Draw_Slice_Command{
-				image = image,
-			},
-			times = 1,
-		},
-	)
+	canvas_append_cmd(canvas, Canvas_Draw_Slice_Cmd{image})
 }

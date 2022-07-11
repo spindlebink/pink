@@ -16,7 +16,7 @@ Canvas :: struct {
 
 // Internal canvas state.
 Canvas_Core :: struct {	
-	commands: [dynamic]Canvas_Command,
+	commands: [dynamic]Canvas_Cmd_Invocation,
 	draw_state_buffer: render.Uniform_Buffer(Canvas_Draw_State_Uniform),
 	primitive_shader, image_shader, slice_shader: wgpu.ShaderModule,
 	prims: render.Painter(Canvas_Primitive_Vertex, Canvas_Primitive_Instance),
