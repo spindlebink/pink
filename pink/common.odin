@@ -13,3 +13,8 @@ Rect :: struct($N: typeid) where intrinsics.type_is_numeric(N) {
 
 Recti :: Rect(int)
 Rectf :: Rect(f32)
+
+Transform :: struct {
+	using bounds: Rectf,
+	rotation: f32,
+}

@@ -22,8 +22,8 @@ Pipeline_Descriptor :: struct {
 
 // Initializes a renderer pipeline using a descriptor.
 pipeline_init :: proc(
-	renderer: ^Context,
 	pipeline: ^Pipeline,
+	renderer: ^Context,
 	desc: Pipeline_Descriptor,
 ) {
 	pipeline.layout = wgpu.DeviceCreatePipelineLayout(

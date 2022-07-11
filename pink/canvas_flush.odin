@@ -12,12 +12,14 @@ _canvas_flush :: proc(
 ) {
 	if renderer.fresh {
 		_canvas_init(canvas, renderer)
-		render.vbuffer_queue_copy_data(renderer, &canvas.core.primitive_vertices)
+		render.vbuffer_queue_copy_data(renderer, &canvas.core.prims.vertices)
+		render.vbuffer_queue_copy_data(renderer, &canvas.core.imgs.vertices)
+		render.vbuffer_queue_copy_data(renderer, &canvas.core.slices.vertices)
 	}
 
-	render.vbuffer_queue_copy_data(renderer, &canvas.core.primitive_instances)
-	render.vbuffer_queue_copy_data(renderer, &canvas.core.image_instances)
-	render.vbuffer_queue_copy_data(renderer, &canvas.core.slice_instances)
+	render.vbuffer_queue_copy_data(renderer, &canvas.core.prims.instances)
+	render.vbuffer_queue_copy_data(renderer, &canvas.core.imgs.instances)
+	render.vbuffer_queue_copy_data(renderer, &canvas.core.slices.instances)
 
 	// Write new renderer transformation matrix to transform buffer
 	if renderer.size_changed || renderer.fresh {
@@ -25,16 +27,6 @@ _canvas_flush :: proc(
 			render.context_compute_window_to_device_matrix(renderer)
 		render.ubuffer_queue_copy_data(renderer, &canvas.core.draw_state_buffer)
 	}
-
-	// Vertex buffer 0 is currently always the primitive vertices
-	// Images and primitives both only need very simple vertex data
-	wgpu.RenderPassEncoderSetVertexBuffer(
-		renderer.render_pass_encoder,
-		0,
-		canvas.core.primitive_vertices.ptr,
-		0,
-		wgpu.WHOLE_SIZE,
-	)
 
 	// Common canvas state used for modulation, global transform, etc. will always
 	// be in slot 0
@@ -50,13 +42,6 @@ _canvas_flush :: proc(
 	curr_image := 0
 	curr_slice := 0
 
-	curr_mode: enum {
-		None,
-		Primitive,
-		Image,
-		Slice,
-	}
-
 	for i := 0; i < len(canvas.core.commands); i += 1 {
 		command := canvas.core.commands[i]
 
@@ -67,21 +52,7 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Primitive_Command:
-			if curr_mode != .Primitive {
-				curr_mode = .Primitive
-				wgpu.RenderPassEncoderSetPipeline(
-					renderer.render_pass_encoder,
-					canvas.core.primitive_pipeline.pipeline,
-				)
-				wgpu.RenderPassEncoderSetVertexBuffer(
-					renderer.render_pass_encoder,
-					1,
-					canvas.core.primitive_instances.ptr,
-					0,
-					wgpu.WHOLE_SIZE,
-				)
-			}
-
+			render.context_attach_painter(renderer, &canvas.core.prims)
 			switch command.data.(Canvas_Draw_Primitive_Command).type {
 			case .Rect:
 				wgpu.RenderPassEncoderDraw(
@@ -100,20 +71,7 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Image_Command:
-			if curr_mode != .Image {
-				curr_mode = .Image
-				wgpu.RenderPassEncoderSetPipeline(
-					renderer.render_pass_encoder,
-					canvas.core.image_pipeline.pipeline,
-				)
-				wgpu.RenderPassEncoderSetVertexBuffer(
-					renderer.render_pass_encoder,
-					1,
-					canvas.core.image_instances.ptr,
-					0,
-					wgpu.WHOLE_SIZE,
-				)
-			}
+			render.context_attach_painter(renderer, &canvas.core.imgs)
 
 			wgpu.RenderPassEncoderSetBindGroup(
 				renderer.render_pass_encoder,
@@ -141,20 +99,8 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Slice_Command:
-			if curr_mode != .Slice {
-				curr_mode = .Slice
-				wgpu.RenderPassEncoderSetPipeline(
-					renderer.render_pass_encoder,
-					canvas.core.slice_pipeline.pipeline,
-				)
-				wgpu.RenderPassEncoderSetVertexBuffer(
-					renderer.render_pass_encoder,
-					1,
-					canvas.core.slice_instances.ptr,
-					0,
-					wgpu.WHOLE_SIZE,
-				)
-			}
+			render.context_attach_painter(renderer, &canvas.core.slices)
+
 			wgpu.RenderPassEncoderSetBindGroup(
 				renderer.render_pass_encoder,
 				1,
@@ -174,9 +120,8 @@ _canvas_flush :: proc(
 			)
 			
 			curr_slice += command.times
-		
+	
 		}
-
 	}
 
 	clear(&canvas.core.commands)

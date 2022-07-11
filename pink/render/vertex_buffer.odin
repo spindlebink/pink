@@ -3,6 +3,7 @@ package pink_render
 import "core:c"
 import "wgpu"
 
+BUFFER_INITIAL_LENGTH :: 40
 BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
 Vertex_Buffer :: struct($Data: typeid) {
@@ -16,7 +17,7 @@ Vertex_Buffer :: struct($Data: typeid) {
 vbuffer_init :: proc(
 	renderer: ^Context,
 	buffer: ^Vertex_Buffer($Data),
-	initial_length := 0,
+	initial_length := BUFFER_INITIAL_LENGTH,
 ) {
 	if initial_length > 0 {
 		buffer.size = initial_length * size_of(Data)
@@ -39,6 +40,22 @@ vbuffer_destroy :: proc(
 		wgpu.BufferDrop(buffer.ptr)
 	}
 	delete(buffer.data)
+}
+
+// Ensures the data array is at least `size`.
+vbuffer_reserve :: #force_inline proc(
+	buffer: ^Vertex_Buffer($D),
+	size: int,
+) {
+	reserve(&buffer.data, size)
+}
+
+// Appends data to the buffer.
+vbuffer_append :: #force_inline proc(
+	buffer: ^Vertex_Buffer($D),
+	data: D,
+) {
+	append(&buffer.data, data)
 }
 
 // Copies data from `buffer.data` to the GPU-side buffer, resizing it if need

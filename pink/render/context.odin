@@ -6,6 +6,9 @@ import "core:math/linalg"
 import sdl "vendor:sdl2"
 import "wgpu"
 
+VBUFFER_INDEX_VERTICES :: 0
+VBUFFER_INDEX_INSTANCES :: 1
+
 // A WGPU rendering context, bringing together all WGPU components necessary to
 // draw things to the screen. Context beyond these members (i.e. pipelines) is
 // done on a module-local level.
@@ -13,17 +16,25 @@ Context :: struct {
 	surface: wgpu.Surface,
 	adapter: wgpu.Adapter,
 	device: wgpu.Device,
+
 	queue: wgpu.Queue,
-	swap_chain: wgpu.SwapChain,
-	command_encoder: wgpu.CommandEncoder,
-	render_texture_format: wgpu.TextureFormat,
 	render_pass_encoder: wgpu.RenderPassEncoder,
+	command_encoder: wgpu.CommandEncoder,
+
+	render_texture_format: wgpu.TextureFormat,
 	basic_texture_bind_group_layout: wgpu.BindGroupLayout,
+
+	swap_chain: wgpu.SwapChain,
 	swap_texture_view: wgpu.TextureView,
 	swap_chain_expired: bool,
-	size_changed: bool,
+
+	active_pipeline: wgpu.RenderPipeline,
+	active_painter_vbuffer: wgpu.Buffer,
+	active_painter_ibuffer: wgpu.Buffer,
+
 	render_width: u32,
 	render_height: u32,
+	size_changed: bool,
 	fresh: bool,
 	exiting: bool,
 	vsync: bool,
@@ -85,6 +96,183 @@ wgpu_device_lost_callback :: proc(
 ) {
 	context_init(cast(^Context) userdata)
 	fmt.eprintln("[wgpu]", message)
+}
+
+// Creates a texture bind group based off the basic texture bind group layout.
+context_create_basic_texture_bind_group :: proc(
+	ren: ^Context,
+	view: wgpu.TextureView,
+	sampler: wgpu.Sampler,
+) -> wgpu.BindGroup {
+	entries := []wgpu.BindGroupEntry{
+		wgpu.BindGroupEntry{
+			binding = 0,
+			textureView = view,
+		},
+		wgpu.BindGroupEntry{
+			binding = 1,
+			sampler = sampler,
+		},
+	}
+
+	return wgpu.DeviceCreateBindGroup(
+		ren.device,
+		&wgpu.BindGroupDescriptor{
+			layout = ren.basic_texture_bind_group_layout,
+			entryCount = c.uint32_t(len(entries)),
+			entries = ([^]wgpu.BindGroupEntry)(raw_data(entries)),
+		},
+	)
+}
+
+context_attach_painter :: #force_inline proc(
+	ren: ^Context,
+	painter: ^$P/Painter,
+) {
+	if ren.active_pipeline != painter.pipeline.pipeline {
+		ren.active_pipeline = painter.pipeline.pipeline
+		wgpu.RenderPassEncoderSetPipeline(
+			ren.render_pass_encoder,
+			painter.pipeline.pipeline,
+		)
+	}
+	if ren.active_painter_vbuffer != painter.vertices.ptr {
+		ren.active_painter_vbuffer = painter.vertices.ptr
+		wgpu.RenderPassEncoderSetVertexBuffer(
+			ren.render_pass_encoder,
+			VBUFFER_INDEX_VERTICES,
+			painter.vertices.ptr,
+			0,
+			wgpu.WHOLE_SIZE,
+		)
+	}
+	if ren.active_painter_ibuffer != painter.instances.ptr {
+		ren.active_painter_ibuffer = painter.instances.ptr
+		wgpu.RenderPassEncoderSetVertexBuffer(
+			ren.render_pass_encoder,
+			VBUFFER_INDEX_INSTANCES,
+			painter.instances.ptr,
+			0,
+			wgpu.WHOLE_SIZE,
+		)
+	}
+}
+
+// Begins a render context frame.
+//
+// This:
+// * Recreates the swap chain if it's been marked as expired
+// * Fetches the device queue and next swap chain texture view
+// * Creates a command encoder for the frame
+// * Begins a ren pass using the current swap chain texture view
+context_begin_frame :: proc(
+	ren: ^Context,
+) -> bool {
+	if ren.swap_chain_expired || ren.fresh {
+		context_recreate_swap_chain(ren)
+	}
+	
+	ren.queue = wgpu.DeviceGetQueue(ren.device)
+	ren.swap_texture_view = wgpu.SwapChainGetCurrentTextureView(ren.swap_chain)
+	
+	ren.active_pipeline = nil
+	ren.active_painter_vbuffer = nil
+	ren.active_painter_ibuffer = nil
+
+	if ren.swap_texture_view == nil do return false
+	
+	ren.command_encoder = wgpu.DeviceCreateCommandEncoder(
+		ren.device,
+		&wgpu.CommandEncoderDescriptor{},
+	)
+	
+	ren.render_pass_encoder = wgpu.CommandEncoderBeginRenderPass(
+		ren.command_encoder,
+		&wgpu.RenderPassDescriptor{
+			label = "RenderPass",
+			colorAttachments = &wgpu.RenderPassColorAttachment{
+				view = ren.swap_texture_view,
+				loadOp = .Clear,
+				storeOp = .Store,
+				clearValue = wgpu.Color{0.0, 0.0, 0.0, 1.0},
+			},
+			colorAttachmentCount = 1,
+		},
+	)
+	
+	return true
+}
+
+// Finishes a render context frame.
+//
+// This:
+// * Ends the render pass
+// * Submits the render pass command encoder to the ren queue
+// * Presents the swap chain
+context_end_frame :: proc(
+	ren: ^Context,
+) -> bool {
+	ren.fresh = false
+	ren.size_changed = false
+
+	wgpu.RenderPassEncoderEnd(ren.render_pass_encoder)
+	commands := wgpu.CommandEncoderFinish(
+		ren.command_encoder,
+		&wgpu.CommandBufferDescriptor{},
+	)
+	wgpu.QueueSubmit(ren.queue, 1, &commands)
+	wgpu.SwapChainPresent(ren.swap_chain)
+	wgpu.TextureViewDrop(ren.swap_texture_view)
+	
+	return true
+}
+
+// Recreates the swap chain on a render context using the current `render_width`
+// and `render_height`. This will automatically be called at frame begin if
+// `swap_chain_expired` has been set and should not be called manually.
+context_recreate_swap_chain :: proc(
+	ren: ^Context,
+) {
+	ren.swap_chain_expired = false
+	ren.swap_chain = wgpu.DeviceCreateSwapChain(
+		ren.device,
+		ren.surface,
+		&wgpu.SwapChainDescriptor{
+			usage = {.RenderAttachment},
+			format = ren.render_texture_format,
+			width = c.uint32_t(ren.render_width),
+			height = c.uint32_t(ren.render_height),
+			presentMode = .Fifo if ren.vsync else .Immediate,
+		},
+	)
+}
+
+// Marks the swap chain as expired and sets the new swap chain size to `width`/
+// `height`.
+context_resize :: proc(
+	ren: ^Context,
+	width: int,
+	height: int,
+) {
+	if u32(width) != ren.render_width || u32(height) != ren.render_height {
+		ren.size_changed = true
+		ren.swap_chain_expired = true
+		ren.render_width = u32(width)
+		ren.render_height = u32(height)
+	}
+}
+
+context_compute_window_to_device_matrix :: #force_inline proc(
+	ren: ^Context,
+) -> linalg.Matrix4x4f32 {
+	w_s := 2.0 / f32(ren.render_width)
+	h_s := 2.0 / f32(ren.render_height)
+	return linalg.Matrix4x4f32{
+		w_s, 0.0, 0.0, 0.0,
+		0.0, h_s, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		-1.0, 1.0, 0.0, 1.0,
+	}
 }
 
 // Initializes a rendering context.
@@ -197,151 +385,4 @@ context_destroy :: proc(
 	}
 
 	return true
-}
-
-// Creates a texture bind group based off the basic texture bind group layout.
-context_create_basic_texture_bind_group :: proc(
-	ren: ^Context,
-	view: wgpu.TextureView,
-	sampler: wgpu.Sampler,
-) -> wgpu.BindGroup {
-	entries := []wgpu.BindGroupEntry{
-		wgpu.BindGroupEntry{
-			binding = 0,
-			textureView = view,
-		},
-		wgpu.BindGroupEntry{
-			binding = 1,
-			sampler = sampler,
-		},
-	}
-
-	return wgpu.DeviceCreateBindGroup(
-		ren.device,
-		&wgpu.BindGroupDescriptor{
-			layout = ren.basic_texture_bind_group_layout,
-			entryCount = c.uint32_t(len(entries)),
-			entries = ([^]wgpu.BindGroupEntry)(raw_data(entries)),
-		},
-	)
-}
-
-// Begins a ren context frame.
-//
-// This:
-// * Recreates the swap chain if it's been marked as expired
-// * Fetches the device queue and next swap chain texture view
-// * Creates a command encoder for the frame
-// * Begins a ren pass using the current swap chain texture view
-context_begin_frame :: proc(
-	ren: ^Context,
-) -> bool {
-	if ren.swap_chain_expired || ren.fresh {
-		context_recreate_swap_chain(ren)
-	}
-	
-	ren.queue = wgpu.DeviceGetQueue(ren.device)
-	ren.swap_texture_view = wgpu.SwapChainGetCurrentTextureView(ren.swap_chain)
-	
-	if ren.swap_texture_view == nil {
-		// TODO: error
-		// _prog_error_report(Error(Render_Error){
-		// 	type = .Frame_Failed,
-		// 	message = "Could not obtain next swap chain texture view",
-		// })
-		return false
-	}
-	
-	ren.command_encoder = wgpu.DeviceCreateCommandEncoder(
-		ren.device,
-		&wgpu.CommandEncoderDescriptor{},
-	)
-	
-	ren.render_pass_encoder = wgpu.CommandEncoderBeginRenderPass(
-		ren.command_encoder,
-		&wgpu.RenderPassDescriptor{
-			label = "RenderPass",
-			colorAttachments = &wgpu.RenderPassColorAttachment{
-				view = ren.swap_texture_view,
-				loadOp = .Clear,
-				storeOp = .Store,
-				clearValue = wgpu.Color{0.0, 0.0, 0.0, 1.0},
-			},
-			colorAttachmentCount = 1,
-		},
-	)
-	
-	return true
-}
-
-// Finishes a ren context frame.
-//
-// This:
-// * Ends the ren pass
-// * Submits the ren pass command encoder to the ren queue
-// * Presents the swap chain
-context_end_frame :: proc(
-	ren: ^Context,
-) -> bool {
-	ren.fresh = false
-	ren.size_changed = false
-
-	wgpu.RenderPassEncoderEnd(ren.render_pass_encoder)
-	commands := wgpu.CommandEncoderFinish(
-		ren.command_encoder,
-		&wgpu.CommandBufferDescriptor{},
-	)
-	wgpu.QueueSubmit(ren.queue, 1, &commands)
-	wgpu.SwapChainPresent(ren.swap_chain)
-	wgpu.TextureViewDrop(ren.swap_texture_view)
-	
-	return true
-}
-
-// Recreates the swap chain on a ren context using the current `render_width`
-// and `render_height`. This will automatically be called at frame begin if
-// `swap_chain_expired` has been set and should not be called manually.
-context_recreate_swap_chain :: proc(
-	ren: ^Context,
-) {
-	ren.swap_chain_expired = false
-	ren.swap_chain = wgpu.DeviceCreateSwapChain(
-		ren.device,
-		ren.surface,
-		&wgpu.SwapChainDescriptor{
-			usage = {.RenderAttachment},
-			format = ren.render_texture_format,
-			width = c.uint32_t(ren.render_width),
-			height = c.uint32_t(ren.render_height),
-			presentMode = .Fifo if ren.vsync else .Immediate,
-		},
-	)
-}
-
-// Marks the swap chain as expired and sets the new swap chain size to `width`/
-// `height`.
-context_resize :: proc(
-	ren: ^Context,
-	width: int,
-	height: int,
-) {
-	if u32(width) != ren.render_width || u32(height) != ren.render_height {
-		ren.size_changed = true
-		ren.swap_chain_expired = true
-		ren.render_width = u32(width)
-		ren.render_height = u32(height)
-	}
-}
-
-context_compute_window_to_device_matrix :: #force_inline proc(
-	ren: ^Context,
-) -> linalg.Matrix4x4f32 {
-	w_s := 2.0 / f32(ren.render_width)
-	h_s := 2.0 / f32(ren.render_height)
-	return linalg.Matrix4x4f32{
-		w_s, 0.0, 0.0, 0.0,
-		0.0, h_s, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		-1.0, 1.0, 0.0, 1.0,
-	}
 }
