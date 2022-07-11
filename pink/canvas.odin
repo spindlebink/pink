@@ -1,7 +1,6 @@
 package pink
 
 import "core:c"
-import "core:fmt"
 import "core:math/linalg"
 import "render"
 import "render/wgpu"
@@ -32,6 +31,10 @@ Canvas_Core :: struct {
 	image_shader: wgpu.ShaderModule,
 	image_instances: render.Vertex_Buffer(Canvas_Image_Instance),
 	image_pipeline: render.Pipeline,
+
+	slice_shader: wgpu.ShaderModule,
+	slice_instances: render.Vertex_Buffer(Canvas_Slice_Instance),
+	slice_pipeline: render.Pipeline,
 }
 
 // Canvas's current color and transform.
@@ -64,12 +67,19 @@ _canvas_init :: proc(
 		CANVAS_SHADER_HEADER,
 		#load("resources/image_shader.wgsl"),
 	)
+	
+	canvas.core.slice_shader = render.shader_module_create(
+		renderer,
+		CANVAS_SHADER_HEADER,
+		#load("resources/slice_shader.wgsl"),
+	)
 
 	canvas.draw_state.color = {1.0, 1.0, 1.0, 1.0}
 
 	canvas.core.primitive_vertices.usage_flags = {.Vertex, .CopyDst}
 	canvas.core.primitive_instances.usage_flags = {.Vertex, .CopyDst}
 	canvas.core.image_instances.usage_flags = {.Vertex, .CopyDst}
+	canvas.core.slice_instances.usage_flags = {.Vertex, .CopyDst}
 
 	reserve(&canvas.core.primitive_vertices.data, len(CANVAS_PRIMITIVE_VERTICES))
 	for vertex in CANVAS_PRIMITIVE_VERTICES {
@@ -90,11 +100,13 @@ _canvas_destroy :: proc(
 	render.vbuffer_destroy(&canvas.core.primitive_vertices)
 	render.vbuffer_destroy(&canvas.core.primitive_instances)
 	render.vbuffer_destroy(&canvas.core.image_instances)
+	render.vbuffer_destroy(&canvas.core.slice_instances)
 
 	render.ubuffer_destroy(&canvas.core.draw_state_buffer)
 
 	wgpu.ShaderModuleDrop(canvas.core.primitive_shader)
 	wgpu.ShaderModuleDrop(canvas.core.image_shader)
+	wgpu.ShaderModuleDrop(canvas.core.slice_shader)
 
 	delete(canvas.core.commands)
 }
@@ -109,8 +121,16 @@ _canvas_init_pipelines :: proc(
 	vertex_attributes := CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES
 	prim_instance_attributes := CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
 	img_instance_attributes := CANVAS_IMAGE_INSTANCE_ATTRIBUTES
+	slice_instance_attributes := CANVAS_SLICE_INSTANCE_ATTRIBUTES
 
 	render.wgpu_vertex_attr_offset_shader_location(vertex_attributes)
+
+	prim_buffer_layout := wgpu.VertexBufferLayout{
+		arrayStride = c.uint64_t(size_of(Canvas_Primitive_Vertex)),
+		stepMode = .Vertex,
+		attributeCount = c.uint32_t(len(vertex_attributes)),
+		attributes = ([^]wgpu.VertexAttribute)(raw_data(vertex_attributes)),
+	}
 
 	// Initialize primitive pipeline
 
@@ -128,12 +148,7 @@ _canvas_init_pipelines :: proc(
 			vertex_entry_point = "vertex_main",
 			fragment_entry_point = "fragment_main",
 			buffer_layouts = []wgpu.VertexBufferLayout{
-				wgpu.VertexBufferLayout{
-					arrayStride = c.uint64_t(size_of(Canvas_Primitive_Vertex)),
-					stepMode = .Vertex,
-					attributeCount = c.uint32_t(len(vertex_attributes)),
-					attributes = cast([^]wgpu.VertexAttribute)raw_data(vertex_attributes),
-				},
+				prim_buffer_layout,
 				wgpu.VertexBufferLayout{
 					arrayStride = c.uint64_t(size_of(Canvas_Primitive_Instance)),
 					stepMode = .Instance,
@@ -163,17 +178,44 @@ _canvas_init_pipelines :: proc(
 			vertex_entry_point = "vertex_main",
 			fragment_entry_point = "fragment_main",
 			buffer_layouts = []wgpu.VertexBufferLayout{
-				wgpu.VertexBufferLayout{
-					arrayStride = c.uint64_t(size_of(Canvas_Primitive_Vertex)),
-					stepMode = .Vertex,
-					attributeCount = c.uint32_t(len(vertex_attributes)),
-					attributes = ([^]wgpu.VertexAttribute)(raw_data(vertex_attributes)),
-				},
+				prim_buffer_layout,
 				wgpu.VertexBufferLayout{
 					arrayStride = c.uint64_t(size_of(Canvas_Image_Instance)),
 					stepMode = .Instance,
 					attributeCount = c.uint32_t(len(img_instance_attributes)),
 					attributes = ([^]wgpu.VertexAttribute)(raw_data(img_instance_attributes)),
+				},
+			},
+			bind_group_layouts = []wgpu.BindGroupLayout{
+				canvas.core.draw_state_buffer.bind_group_layout,
+				canvas.core.texture_bind_group_layout,
+			},
+		},
+	)
+	
+	// Initialize slice pipeline
+	
+	render.wgpu_vertex_attr_offset_shader_location(
+		slice_instance_attributes,
+		len(vertex_attributes),
+	)
+	
+	render.pipeline_init(
+		renderer,
+		&canvas.core.slice_pipeline,
+		render.Pipeline_Descriptor{
+			label = "CanvasSlicePipeline",
+			shader = canvas.core.slice_shader,
+			vertex_entry_point = "vertex_main",
+			fragment_entry_point = "fragment_main",
+			buffer_layouts = []wgpu.VertexBufferLayout{
+				prim_buffer_layout,
+				wgpu.VertexBufferLayout{
+					arrayStride = c.uint64_t(size_of(Canvas_Slice_Instance)),
+					stepMode = .Instance,
+					attributeCount = c.uint32_t(len(slice_instance_attributes)),
+					attributes =
+						([^]wgpu.VertexAttribute)(raw_data(slice_instance_attributes)),
 				},
 			},
 			bind_group_layouts = []wgpu.BindGroupLayout{

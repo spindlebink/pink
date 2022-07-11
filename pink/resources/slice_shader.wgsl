@@ -8,6 +8,7 @@ struct Instance {
     @location(3) scale: vec2<f32>,
     @location(4) rotation: f32,
     @location(5) color: vec4<f32>,
+    @location(6) uv_extents: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -44,7 +45,10 @@ fn vertex_main(
         1.0, 1.0,
     ) * pk_canvas_state.window_to_device;
 
-    out.uv = vec2<f32>(1.0, 1.0) - (vertex.position + vec2<f32>(1.0, 1.0)) / 2.0;
+    out.uv = vec2<f32>(
+        instance.uv_extents[vertex.uv_indices[0]],
+        instance.uv_extents[vertex.uv_indices[1]],
+    );
 
     return out;
 }
@@ -59,3 +63,4 @@ fn fragment_main(
 
     return out;
 }
+

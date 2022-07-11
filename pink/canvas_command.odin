@@ -18,11 +18,17 @@ Canvas_Draw_Image_Command :: struct {
 	image: ^Image,
 }
 
+Canvas_Draw_Slice_Command :: struct {
+	image: ^Image,
+	uv_extents: [4]f32,
+}
+
 // A draw command.
 Canvas_Command :: struct {
 	data: union {
 		Canvas_Draw_Primitive_Command,
 		Canvas_Draw_Image_Command,
+		Canvas_Draw_Slice_Command,
 	},
 	times: int,
 }
@@ -54,6 +60,8 @@ _canvas_append_command :: proc(
 					top.times += command.times
 					return
 				}
+			
+			case Canvas_Draw_Slice_Command:
 			
 			}
 		}

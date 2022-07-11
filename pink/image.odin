@@ -26,7 +26,7 @@ Image_Filter :: render.Texture_Filter
 Image_Options :: render.Texture_Options
 
 // Loads a byte slice to create an image.
-image_create :: proc(
+image_create_from_data :: proc(
 	data: []u8,
 	options := Image_Options{},
 ) -> Image {

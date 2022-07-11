@@ -24,6 +24,11 @@ Canvas_Image_Instance :: struct {
 	using primitive_instance: Canvas_Primitive_Instance,
 }
 
+Canvas_Slice_Instance :: struct {
+	using primitive_instance: Canvas_Primitive_Instance,
+	uv_extents: [4]f32,
+}
+
 CANVAS_PRIMITIVE_VERTICES :: []Canvas_Primitive_Vertex{
 	Canvas_Primitive_Vertex{{-1.0, 1.0}, {0, 1}},
 	Canvas_Primitive_Vertex{{1.0, 1.0}, {2, 1}},
@@ -36,12 +41,10 @@ CANVAS_PRIMITIVE_VERTICES :: []Canvas_Primitive_Vertex{
 CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES :: []wgpu.VertexAttribute{
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Vertex, position)),
-		shaderLocation = 0,
 		format = .Float32x2,
 	},
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Vertex, uv_indices)),
-		shaderLocation = 1,
 		format = .Uint16x2,
 	},
 }
@@ -49,24 +52,31 @@ CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES :: []wgpu.VertexAttribute{
 CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, translation)),
-		shaderLocation = 2,
 		format = .Float32x2,
 	},
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, scale)),
-		shaderLocation = 3,
 		format = .Float32x2,
 	},
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, rotation)),
-		shaderLocation = 4,
 		format = .Float32,
 	},
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, color)),
-		shaderLocation = 5,
 		format = .Float32x4,
 	},
 }
 
 CANVAS_IMAGE_INSTANCE_ATTRIBUTES :: CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
+
+CANVAS_SLICE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[0],
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[1],
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[2],
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[3],
+	wgpu.VertexAttribute{
+		offset = c.uint64_t(offset_of(Canvas_Slice_Instance, uv_extents)),
+		format = .Float32x4,
+	},
+}

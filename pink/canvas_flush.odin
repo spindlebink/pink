@@ -18,6 +18,7 @@ _canvas_flush :: proc(
 
 	render.vbuffer_queue_copy_data(renderer, &canvas.core.primitive_instances)
 	render.vbuffer_queue_copy_data(renderer, &canvas.core.image_instances)
+	render.vbuffer_queue_copy_data(renderer, &canvas.core.slice_instances)
 
 	// Write new renderer transformation matrix to transform buffer
 	if renderer.size_changed || renderer.fresh {
@@ -48,6 +49,7 @@ _canvas_flush :: proc(
 
 	curr_primitive := 0
 	curr_image := 0
+	curr_slice := 0
 
 	for i := 0; i < len(canvas.core.commands); i += 1 {
 		command := canvas.core.commands[i]
@@ -100,7 +102,6 @@ _canvas_flush :: proc(
 				0,
 				wgpu.WHOLE_SIZE,
 			)
-
 			wgpu.RenderPassEncoderSetBindGroup(
 				renderer.render_pass_encoder,
 				1,
@@ -111,7 +112,6 @@ _canvas_flush :: proc(
 				0,
 				nil,
 			)
-			
 			wgpu.RenderPassEncoderDraw(
 				renderer.render_pass_encoder,
 				6, // vertices per rect
@@ -121,6 +121,43 @@ _canvas_flush :: proc(
 			)
 			
 			curr_image += command.times
+		
+		
+		//
+		// Draw slice
+		//
+		
+		case Canvas_Draw_Slice_Command:
+			wgpu.RenderPassEncoderSetPipeline(
+				renderer.render_pass_encoder,
+				canvas.core.slice_pipeline.pipeline,
+			)
+			wgpu.RenderPassEncoderSetVertexBuffer(
+				renderer.render_pass_encoder,
+				1,
+				canvas.core.slice_instances.ptr,
+				0,
+				wgpu.WHOLE_SIZE,
+			)
+			wgpu.RenderPassEncoderSetBindGroup(
+				renderer.render_pass_encoder,
+				1,
+				_image_fetch_bind_group(
+					command.data.(Canvas_Draw_Slice_Command).image,
+					renderer,
+				),
+				0,
+				nil,
+			)
+			wgpu.RenderPassEncoderDraw(
+				renderer.render_pass_encoder,
+				6, // vertices per rect
+				c.uint32_t(command.times),
+				0,
+				c.uint32_t(curr_slice),
+			)
+			
+			curr_slice += command.times
 		
 		}
 
