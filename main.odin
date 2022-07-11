@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:mem"
 import "pink"
 
 ctx: Context
@@ -40,6 +41,17 @@ on_exit :: proc() {
 }
 
 main :: proc() {
+	tracker: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&tracker, context.allocator)
+	defer mem.tracking_allocator_destroy(&tracker)
+	context.allocator = mem.tracking_allocator(&tracker)
+	defer if len(tracker.allocation_map) > 0 {
+		fmt.eprintln()
+		for _, v in tracker.allocation_map {
+			fmt.eprintf("%v - leaked %v bytes\n", v.location, v.size)
+		}
+	}
+
 	ctx.program.hooks.on_load = on_load
 	ctx.program.hooks.on_exit = on_exit
 	
