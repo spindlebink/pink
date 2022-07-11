@@ -88,6 +88,8 @@ _canvas_init :: proc(
 
 	canvas.core.draw_state_buffer.usage_flags = {.Uniform, .CopyDst}
 	render.ubuffer_init(renderer, &canvas.core.draw_state_buffer)
+
+	_canvas_init_pipelines(canvas, renderer)
 }
 
 // Destroys a canvas.
