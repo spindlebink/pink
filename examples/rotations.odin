@@ -20,6 +20,10 @@ RECTS_Y :: 10
 RECTS_MARGIN :: 10
 ROTATION_SPEED: f32 = 0.0002
 
+on_load :: proc() {
+	game_state.kenney_img = pink.image_create_from_data(#load("kenney16.png"))
+}
+
 on_update :: proc(delta: f64) {
 	game_state.rect_rotation += f32(delta) * ROTATION_SPEED
 }
@@ -32,11 +36,15 @@ on_draw :: proc() {
 
 	pink.canvas_draw_rect(
 		&game_state.program.canvas,
-		f32(game_state.program.window.width) * 0.5,
-		f32(game_state.program.window.height) * 0.5,
-		f32(game_state.program.window.width) * 0.5 - 10.0,
-		f32(game_state.program.window.height) * 0.5 - 10.0,
-		0.0,
+		{
+			{
+				f32(game_state.program.window.width) * 0.5,
+				f32(game_state.program.window.height) * 0.5,
+				f32(game_state.program.window.width) * 0.5 - 10.0,
+				f32(game_state.program.window.height) * 0.5 - 10.0,
+			},
+			0.0,
+		},
 	)
 	
 	pink.canvas_set_color(
@@ -62,16 +70,21 @@ on_draw :: proc() {
 			if (x + y) % 2 == 0 {
 				pink.canvas_draw_rect(
 					&game_state.program.canvas,
+					{{
 					px, py,
 					rw, rh,
+					},
 					game_state.rect_rotation + px * 0.1 + py * 0.1,
+					},
 				)
 			} else {
-				pink.canvas_draw_image(
+				pink.canvas_draw_slice(
 					&game_state.program.canvas,
 					&game_state.kenney_img,
-					px, py,
-					rw, rh,
+					pink.Recti{
+						0, 0, int(game_state.kenney_img.width / 4), int(game_state.kenney_img.height),
+					},
+					{{px, py, 0, 0}, 0},
 				)
 			}
 		}
@@ -94,10 +107,10 @@ main :: proc() {
 		}
 	}
 
+	game_state.program.hooks.on_load = on_load
 	game_state.program.hooks.on_update = on_update
 	game_state.program.hooks.on_draw = on_draw
 	game_state.program.hooks.on_exit = on_exit
-	game_state.kenney_img = pink.image_create(#load("kenney16.png"))
 
 	pink.program_load(&game_state.program)
 	pink.program_run(&game_state.program)
