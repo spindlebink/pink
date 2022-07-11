@@ -107,9 +107,17 @@ _canvas_init_pipelines :: proc(
 	canvas.core.texture_bind_group_layout = renderer.basic_texture_bind_group_layout
 
 	vertex_attributes := CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES
-	instance_attributes := CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
+	prim_instance_attributes := CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
+	img_instance_attributes := CANVAS_IMAGE_INSTANCE_ATTRIBUTES
+
+	render.wgpu_vertex_attr_offset_shader_location(vertex_attributes)
 
 	// Initialize primitive pipeline
+
+	render.wgpu_vertex_attr_offset_shader_location(
+		prim_instance_attributes,
+		len(vertex_attributes),
+	)
 
 	render.pipeline_init(
 		renderer,
@@ -129,8 +137,8 @@ _canvas_init_pipelines :: proc(
 				wgpu.VertexBufferLayout{
 					arrayStride = c.uint64_t(size_of(Canvas_Primitive_Instance)),
 					stepMode = .Instance,
-					attributeCount = c.uint32_t(len(instance_attributes)),
-					attributes = cast([^]wgpu.VertexAttribute)raw_data(instance_attributes),
+					attributeCount = c.uint32_t(len(prim_instance_attributes)),
+					attributes = ([^]wgpu.VertexAttribute)(raw_data(prim_instance_attributes)),
 				},
 			},
 			bind_group_layouts = []wgpu.BindGroupLayout{
@@ -140,6 +148,11 @@ _canvas_init_pipelines :: proc(
 	)
 
 	// Initialize image pipeline
+
+	render.wgpu_vertex_attr_offset_shader_location(
+		img_instance_attributes,
+		len(vertex_attributes),
+	)
 
 	render.pipeline_init(
 		renderer,
@@ -154,13 +167,13 @@ _canvas_init_pipelines :: proc(
 					arrayStride = c.uint64_t(size_of(Canvas_Primitive_Vertex)),
 					stepMode = .Vertex,
 					attributeCount = c.uint32_t(len(vertex_attributes)),
-					attributes = cast([^]wgpu.VertexAttribute)raw_data(vertex_attributes),
+					attributes = ([^]wgpu.VertexAttribute)(raw_data(vertex_attributes)),
 				},
 				wgpu.VertexBufferLayout{
 					arrayStride = c.uint64_t(size_of(Canvas_Image_Instance)),
 					stepMode = .Instance,
-					attributeCount = c.uint32_t(len(instance_attributes)),
-					attributes = cast([^]wgpu.VertexAttribute)raw_data(instance_attributes),
+					attributeCount = c.uint32_t(len(img_instance_attributes)),
+					attributes = ([^]wgpu.VertexAttribute)(raw_data(img_instance_attributes)),
 				},
 			},
 			bind_group_layouts = []wgpu.BindGroupLayout{
