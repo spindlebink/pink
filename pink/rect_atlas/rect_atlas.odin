@@ -38,7 +38,7 @@ atlas_clear :: proc(
 
 // Destroys a rect atlas.
 atlas_destroy :: proc(
-	atlas: ^Atlas($R),
+	atlas: Atlas($R),
 ) {
 	delete(atlas.spaces)
 }
