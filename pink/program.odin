@@ -222,6 +222,8 @@ program_run :: proc(
 program_exit :: proc(
 	program: ^Program,
 ) -> bool {
+	if program.hooks.on_exit != nil do program.hooks.on_exit()
+	
 	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
 	window_destroy(&program.window)
