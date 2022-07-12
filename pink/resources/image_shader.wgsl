@@ -42,7 +42,7 @@ fn vertex_main(
             instance.rotation,
         ),
         1.0, 1.0,
-    ) * pk_canvas_state.window_to_device;
+    ) * pk_render_state.window_to_device;
 
     out.uv = vec2<f32>(1.0, 1.0) - (vertex.position + vec2<f32>(1.0, 1.0)) / 2.0;
 

@@ -19,9 +19,15 @@ Canvas_Draw_Img_Cmd :: struct {
 	image: ^Image,
 }
 
-// Data for an slice drawing command.
+// Data for a slice drawing command.
 Canvas_Draw_Slice_Cmd :: struct {
 	image: ^Image,
+}
+
+// Data for a text drawing command.
+Canvas_Draw_Glyph_Cmd :: struct {
+	glyphset: ^Glyphset,
+	page: int,
 }
 
 // A draw command.
@@ -29,6 +35,7 @@ Canvas_Cmd :: union {
 	Canvas_Draw_Primitive_Cmd,
 	Canvas_Draw_Img_Cmd,
 	Canvas_Draw_Slice_Cmd,
+	Canvas_Draw_Glyph_Cmd,
 }
 
 Canvas_Cmd_Invocation :: struct {
@@ -68,6 +75,14 @@ canvas_append_cmd :: proc(
 				cmd_img_hash := command.(Canvas_Draw_Slice_Cmd).image.core.hash
 				top_img_hash := top.data.(Canvas_Draw_Slice_Cmd).image.core.hash
 				if cmd_img_hash == top_img_hash {
+					top.times += 1
+					return
+				}
+			
+			case Canvas_Draw_Glyph_Cmd:
+				cmd_gs := command.(Canvas_Draw_Glyph_Cmd)
+				top_gs := top.data.(Canvas_Draw_Glyph_Cmd)
+				if cmd_gs.glyphset.core.hash == top_gs.glyphset.core.hash &&cmd_gs.page == top_gs.page {
 					top.times += 1
 					return
 				}

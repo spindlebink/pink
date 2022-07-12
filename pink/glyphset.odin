@@ -1,12 +1,13 @@
 package pink
 
 import "core:fmt"
+import "core:hash"
 import "core:sort"
 import "rect_atlas"
 import "fontdue"
 import "render"
 
-GLYPHSET_PAGE_SIZE :: 1024
+GLYPHSET_PAGE_SIZE :: 2048
 
 Glyphset :: struct {
 	core: Glyphset_Core,
@@ -14,10 +15,11 @@ Glyphset :: struct {
 
 @(private)
 Glyphset_Core :: struct {
+	hash: u32,
 	baked: bool,
 	flushed: bool,
 	baked_glyphs: map[rune]Glyph_Lookup,
-	pages: [dynamic]Glyph_Page,
+	pages: [dynamic]render.Texture,
 	bitmap: [dynamic]u8,
 	glyphs: [dynamic]Glyph_Bitmap_Entry,
 }
@@ -26,12 +28,7 @@ Glyphset_Core :: struct {
 Glyph_Lookup :: struct {
 	page: int,
 	index: int,
-	uv: Rectf,
-}
-
-@(private)
-Glyph_Page :: struct {
-	texture: ^render.Texture,
+	uv: [4]f32,
 }
 
 @(private)
@@ -50,7 +47,9 @@ glyphset_destroy :: proc(
 	glyphset: Glyphset,
 ) {
 	if glyphset.core.baked {
-		for page in glyphset.core.pages do render.texture_deinit(page.texture)
+		for _, i in glyphset.core.pages {
+			render.texture_deinit(&glyphset.core.pages[i])
+		}
 	}
 	delete(glyphset.core.baked_glyphs)
 	delete(glyphset.core.pages)
@@ -62,11 +61,14 @@ glyphset_destroy :: proc(
 glyphset_bake :: proc(
 	glyphset: ^Glyphset,
 ) {
+	glyphset.core.hash = hash.murmur32(glyphset.core.bitmap[:])
 	glyphset.core.flushed = false
 	clear(&glyphset.core.baked_glyphs)
 
 	if glyphset.core.baked {
-		for page in glyphset.core.pages do render.texture_deinit(page.texture)
+		for _, i in glyphset.core.pages {
+			render.texture_deinit(&glyphset.core.pages[i])
+		}
 		clear(&glyphset.core.pages)
 	}
 	
@@ -93,7 +95,7 @@ glyphset_bake :: proc(
 	sort.sort(sorter)
 	
 	// Begin with one glyph page
-	append(&glyphset.core.pages, Glyph_Page{})
+	append(&glyphset.core.pages, render.Texture{})
 	all_packed := false
 
 	for !all_packed {
@@ -111,14 +113,17 @@ glyphset_bake :: proc(
 				// If it fits into the current page, store a lookup for it in the baked
 				// glyphs map so we can find it quickly
 				if packed {
+					u1, v1 := 
+						f32(glyphset.core.glyphs[i].x) / f32(GLYPHSET_PAGE_SIZE),
+						f32(glyphset.core.glyphs[i].y) / f32(GLYPHSET_PAGE_SIZE)
 					lookup := Glyph_Lookup{
 						page = len(glyphset.core.pages) - 1,
 						index = i,
-						uv = Rectf{
-							x = f32(glyphset.core.glyphs[i].x) / f32(GLYPHSET_PAGE_SIZE),
-							y = f32(glyphset.core.glyphs[i].y) / f32(GLYPHSET_PAGE_SIZE),
-							w = f32(glyphset.core.glyphs[i].w) / f32(GLYPHSET_PAGE_SIZE),
-							h = f32(glyphset.core.glyphs[i].h) / f32(GLYPHSET_PAGE_SIZE),
+						uv = {
+							u1,
+							v1,
+							u1 + f32(glyphset.core.glyphs[i].w) / f32(GLYPHSET_PAGE_SIZE),
+							v1 + f32(glyphset.core.glyphs[i].h) / f32(GLYPHSET_PAGE_SIZE),
 						},
 					}
 
@@ -137,19 +142,66 @@ glyphset_bake :: proc(
 
 		// If at least one couldn't fit, add a new page and we'll cycle back around
 		if !all_packed {
-			append(&glyphset.core.pages, Glyph_Page{})
+			append(&glyphset.core.pages, render.Texture{})
 			rect_atlas.atlas_clear(&atlas, GLYPHSET_PAGE_SIZE)
 		}
 	}
 }
 
+// Flushes the glyphset to the GPU if it hasn't already been.
+@(private)
+glyphset_ensure_flushed :: #force_inline proc(
+	glyphset: ^Glyphset,
+	renderer: ^render.Renderer,
+) {
+	if !glyphset.core.flushed do glyphset_flush_bake(glyphset, renderer)
+}
+
 // Flushes bake results to the GPU.
+@(private)
 glyphset_flush_bake :: proc(
 	glyphset: ^Glyphset,
 	renderer: ^render.Renderer,
 ) {
 	glyphset.core.flushed = true
-	unimplemented()
+	
+	for _, i in glyphset.core.pages {
+		render.texture_init(
+			renderer,
+			&glyphset.core.pages[i],
+			GLYPHSET_PAGE_SIZE,
+			GLYPHSET_PAGE_SIZE,
+			render.Texture_Options{
+				format = .Grayscale,
+			},
+		)
+	}
+	
+	for _, baked_glyph in glyphset.core.baked_glyphs {
+		page_texture_addr := &glyphset.core.pages[baked_glyph.page]
+		glyph := glyphset.core.glyphs[baked_glyph.index]
+		
+		lower := glyph.offset
+		upper := glyph.offset + glyph.w * glyph.h
+
+		render.texture_queue_copy(
+			renderer,
+			page_texture_addr,
+			glyphset.core.bitmap[lower:upper],
+			uint(glyph.x),
+			uint(glyph.y),
+			uint(glyph.w),
+			uint(glyph.h),
+		)
+	}
+}
+
+glyphset_glyph_size :: proc(
+	glyphset: ^Glyphset,
+	baked_glyph: Glyph_Lookup,
+) -> (int, int) {
+	glyph := glyphset.core.glyphs[baked_glyph.index]
+	return glyph.w, glyph.h
 }
 
 // @(private)

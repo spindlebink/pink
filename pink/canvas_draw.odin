@@ -1,5 +1,6 @@
 package pink
 
+import "core:fmt"
 import "core:reflect"
 import "render"
 import "render/wgpu"
@@ -70,4 +71,51 @@ canvas_draw_slice :: proc(
 		},
 	)
 	canvas_append_cmd(canvas, Canvas_Draw_Slice_Cmd{image})
+}
+
+canvas_draw_text :: proc(
+	canvas: ^Canvas,
+	glyphset: ^Glyphset,
+	text: string,
+) {
+	// for each letter, append a glyph data item and a glyph draw command
+	// make sure page in glyph draw command corresponds to page in glyphset
+	// they'll be batched correctly by canvas_flush
+	
+	left: f32 = 0
+	
+	for glyph in text {
+		if glyph == ' ' {
+			left += 16
+			continue
+		}
+		
+		glyph_lookup, ok := glyphset.core.baked_glyphs[glyph]
+		if !ok do panic("Glyphset missing requested glyph")
+
+		gwi, ghi := glyphset_glyph_size(glyphset, glyph_lookup)
+		glyph_width, glyph_height := f32(gwi), f32(ghi)
+
+		render.painter_append_inst(
+			&canvas.core.glyphs,
+			Canvas_Slice_Instance{
+				primitive_instance = canvas_prim_inst_from_transform(
+					Transform{
+						{
+							x = left,
+							y = 0,
+							w = glyph_width,
+							h = glyph_height,
+						},
+						0,
+					},
+					canvas.draw_state.color,
+				),
+				uv_extents = glyph_lookup.uv,
+			},
+		)
+
+		canvas_append_cmd(canvas, Canvas_Draw_Glyph_Cmd{glyphset, glyph_lookup.page})
+		left += glyph_width
+	}
 }

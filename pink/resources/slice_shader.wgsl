@@ -13,7 +13,7 @@ struct Instance {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) modulation: vec4<f32>,
+    @location(0) color: vec4<f32>,
     @location(1) uv: vec2<f32>,
 };
 
@@ -30,7 +30,8 @@ fn vertex_main(
     instance: Instance,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.modulation = vec4<f32>(
+
+    out.color = vec4<f32>(
         pk_linear_to_gamma(instance.color.rgb),
         instance.color.a,
     );
@@ -43,7 +44,7 @@ fn vertex_main(
             instance.rotation,
         ),
         1.0, 1.0,
-    ) * pk_canvas_state.window_to_device;
+    ) * pk_render_state.window_to_device;
 
     out.uv = vec2<f32>(
         instance.uv_extents[vertex.uv_indices[0]],
@@ -59,7 +60,7 @@ fn fragment_main(
 ) -> FragmentOutput {
     var out: FragmentOutput;
 
-    out.color = in.modulation * textureSample(image_texture, image_sampler, in.uv);
+    out.color = in.color * textureSample(image_texture, image_sampler, in.uv);
 
     return out;
 }

@@ -1,5 +1,6 @@
 package pink
 
+import "core:fmt"
 import "core:c"
 import "core:math/linalg"
 import "render"
@@ -25,10 +26,14 @@ Canvas_Core :: struct {
 	render_pass: render.Render_Pass,
 	commands: [dynamic]Canvas_Cmd_Invocation,
 	draw_state_buffer: render.Uniform_Buffer(Canvas_Draw_State_Uniform),
-	primitive_shader, image_shader, slice_shader: wgpu.ShaderModule,
+	primitive_shader,
+	image_shader,
+	slice_shader,
+	glyph_shader: wgpu.ShaderModule,
 	prims: render.Painter(Canvas_Primitive_Vertex, Canvas_Primitive_Instance),
 	imgs: render.Painter(Canvas_Primitive_Vertex, Canvas_Image_Instance),
 	slices: render.Painter(Canvas_Primitive_Vertex, Canvas_Slice_Instance),
+	glyphs: render.Painter(Canvas_Primitive_Vertex, Canvas_Slice_Instance),
 }
 
 // Initializes a canvas.
@@ -54,14 +59,20 @@ canvas_init :: proc(
 		CANVAS_SHADER_HEADER,
 		#load("resources/slice_shader.wgsl"),
 	)
+	
+	canvas.core.glyph_shader = render.shader_module_create(
+		renderer,
+		CANVAS_SHADER_HEADER,
+		#load("resources/glyph_shader.wgsl"),
+	)
 
 	canvas.draw_state.color = {1.0, 1.0, 1.0, 1.0}
 
 	render.painter_append_verts(&canvas.core.prims, CANVAS_PRIMITIVE_VERTICES)
 	render.painter_append_verts(&canvas.core.imgs, CANVAS_PRIMITIVE_VERTICES)
 	render.painter_append_verts(&canvas.core.slices, CANVAS_PRIMITIVE_VERTICES)
+	render.painter_append_verts(&canvas.core.glyphs, CANVAS_PRIMITIVE_VERTICES)
 
-	canvas.core.draw_state_buffer.usage_flags = {.Uniform, .CopyDst}
 	render.ubuffer_init(renderer, &canvas.core.draw_state_buffer)
 
 	render.painter_init(
@@ -90,7 +101,7 @@ canvas_init :: proc(
 			instance_attributes = CANVAS_IMAGE_INSTANCE_ATTRIBUTES,
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
-				renderer.basic_texture_bind_group_layout,
+				renderer.texture_bind_group_layout,
 			},
 		},
 	)
@@ -106,7 +117,23 @@ canvas_init :: proc(
 			instance_attributes = CANVAS_SLICE_INSTANCE_ATTRIBUTES,
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
-				renderer.basic_texture_bind_group_layout,
+				renderer.texture_bind_group_layout,
+			},
+		},
+	)
+
+	render.painter_init(
+		&canvas.core.glyphs,
+		renderer,
+		render.Painter_Descriptor{
+			shader = canvas.core.glyph_shader,
+			vertex_entry_point = "vertex_main",
+			fragment_entry_point = "fragment_main",
+			vertex_attributes = CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES,
+			instance_attributes = CANVAS_SLICE_INSTANCE_ATTRIBUTES,
+			bind_group_layouts = []wgpu.BindGroupLayout{
+				canvas.core.draw_state_buffer.bind_group_layout,
+				renderer.texture_bind_group_layout,
 			},
 		},
 	)
@@ -120,6 +147,7 @@ canvas_destroy :: proc(
 	render.painter_destroy(&canvas.core.prims)
 	render.painter_destroy(&canvas.core.imgs)
 	render.painter_destroy(&canvas.core.slices)
+	render.painter_destroy(&canvas.core.glyphs)
 
 	render.ubuffer_destroy(&canvas.core.draw_state_buffer)
 

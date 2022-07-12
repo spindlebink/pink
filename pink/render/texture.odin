@@ -100,7 +100,7 @@ texture_init :: proc(
 		},
 	)
 
-	texture.bind_group = renderer_create_basic_texture_bind_group(
+	texture.bind_group = renderer_create_texture_bind_group(
 		renderer,
 		texture.view,
 		texture.sampler,

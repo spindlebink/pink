@@ -20,7 +20,8 @@ Renderer :: struct {
 	render_pass: Render_Pass,
 
 	render_texture_format: wgpu.TextureFormat,
-	basic_texture_bind_group_layout: wgpu.BindGroupLayout,
+
+	texture_bind_group_layout: wgpu.BindGroupLayout,
 
 	swap_chain: wgpu.SwapChain,
 	swap_texture_view: wgpu.TextureView,
@@ -93,7 +94,7 @@ wgpu_device_lost_callback :: proc(
 }
 
 // Creates a texture bind group based off the basic texture bind group layout.
-renderer_create_basic_texture_bind_group :: proc(
+renderer_create_texture_bind_group :: proc(
 	ren: ^Renderer,
 	view: wgpu.TextureView,
 	sampler: wgpu.Sampler,
@@ -112,7 +113,7 @@ renderer_create_basic_texture_bind_group :: proc(
 	return wgpu.DeviceCreateBindGroup(
 		ren.device,
 		&wgpu.BindGroupDescriptor{
-			layout = ren.basic_texture_bind_group_layout,
+			layout = ren.texture_bind_group_layout,
 			entryCount = c.uint32_t(len(entries)),
 			entries = ([^]wgpu.BindGroupEntry)(raw_data(entries)),
 		},
@@ -296,15 +297,14 @@ renderer_init :: proc(
 		},
 	}
 
-	ren.basic_texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+	ren.texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
 		ren.device,
 		&wgpu.BindGroupLayoutDescriptor{
-			label = "CanvasImagePipelineBindGroupLayout",
 			entryCount = c.uint32_t(len(group_entries)),
 			entries = ([^]wgpu.BindGroupLayoutEntry)(raw_data(group_entries)),
 		},
 	)
-
+	
 	ren.fresh = true
 	ren.swap_chain_expired = true
 
@@ -317,7 +317,7 @@ renderer_destroy :: proc(
 ) -> bool {
 	ren.exiting = true
 
-	wgpu.BindGroupLayoutDrop(ren.basic_texture_bind_group_layout)
+	wgpu.BindGroupLayoutDrop(ren.texture_bind_group_layout)
 
 	if ren.device != nil {
 		wgpu.DeviceDestroy(ren.device)

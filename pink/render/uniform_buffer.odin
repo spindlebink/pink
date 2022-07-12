@@ -18,6 +18,8 @@ ubuffer_init :: proc(
 	renderer: ^Renderer,
 	buffer: ^Uniform_Buffer($Data),
 ) {
+	buffer.usage_flags += {.Uniform, .CopyDst}
+
 	buffer.ptr = wgpu.DeviceCreateBuffer(
 		renderer.device,
 		&wgpu.BufferDescriptor{

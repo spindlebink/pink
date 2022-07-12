@@ -16,11 +16,13 @@ canvas_flush :: proc(
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.prims.vertices)
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.imgs.vertices)
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.slices.vertices)
+		render.vbuffer_queue_copy_data(renderer, &canvas.core.glyphs.vertices)
 	}
 
 	render.vbuffer_queue_copy_data(renderer, &canvas.core.prims.instances)
 	render.vbuffer_queue_copy_data(renderer, &canvas.core.imgs.instances)
 	render.vbuffer_queue_copy_data(renderer, &canvas.core.slices.instances)
+	render.vbuffer_queue_copy_data(renderer, &canvas.core.glyphs.instances)
 
 	// Write new renderer transformation matrix to transform buffer
 	if renderer.size_changed || renderer.fresh {
@@ -39,7 +41,7 @@ canvas_flush :: proc(
 		canvas.core.draw_state_buffer,
 	)
 
-	curr_primitive, curr_image, curr_slice: uint
+	curr_primitive, curr_image, curr_slice, curr_glyph: uint
 
 	for i := 0; i < len(canvas.core.commands); i += 1 {
 		command := canvas.core.commands[i]
@@ -85,9 +87,9 @@ canvas_flush :: proc(
 			)
 			render.render_pass_draw(
 				canvas.core.render_pass,
-				0, // Rectangle primitive starts at 0
-				6, // and there are 6 vertices per rectangle primitive
-				curr_primitive,
+				0,
+				6,
+				curr_image,
 				command.times,
 			)
 
@@ -110,13 +112,38 @@ canvas_flush :: proc(
 			)
 			render.render_pass_draw(
 				canvas.core.render_pass,
-				0, // Rectangle primitive starts at 0
-				6, // and there are 6 vertices per rectangle primitive
-				curr_primitive,
+				0,
+				6,
+				curr_slice,
 				command.times,
 			)
 
 			curr_slice += command.times
+		
+		
+		//
+		// Draw glyph
+		//
+		
+		case Canvas_Draw_Glyph_Cmd:
+			glyph_cmd := command.data.(Canvas_Draw_Glyph_Cmd)
+			glyphset_ensure_flushed(glyph_cmd.glyphset, renderer)
+			
+			render.render_pass_attach_painter(&canvas.core.render_pass, &canvas.core.glyphs)
+			render.render_pass_bind(
+				canvas.core.render_pass,
+				1,
+				glyph_cmd.glyphset.core.pages[glyph_cmd.page].bind_group,
+			)
+			render.render_pass_draw(
+				canvas.core.render_pass,
+				0,
+				6,
+				curr_glyph,
+				command.times,
+			)
+			
+			curr_glyph += command.times
 		}
 	}
 
