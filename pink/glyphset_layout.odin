@@ -153,5 +153,7 @@ glyphset_layout_append_seg :: proc(
 glyphset_layout_clear :: proc(
 	layout: ^Glyphset_Layout,
 ) {
-	
+	layout.core.updated = false
+	clear(&layout.core.positions)
+	fontdue.layout_clear(layout.core.layout)
 }

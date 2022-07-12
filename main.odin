@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:mem"
+import "core:time"
 import "pink"
 
 ctx: Context
@@ -29,7 +30,7 @@ on_load :: proc() {
 		}
 	)
 	
-	for r, i in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!'," {
+	for r, i in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!',.:" {
 		pink.glyphset_rasterize(
 			&ctx.glyphset,
 			// Uppercase = moon, everything else = dosis
@@ -44,10 +45,16 @@ on_load :: proc() {
 		&ctx.layout,
 		&ctx.glyphset,
 	)
-	pink.glyphset_layout_append(&ctx.layout, "Waddle Dee Waddle Doo")
 }
 
 on_draw :: proc() {
+	hour, min, sec := time.clock_from_time(time.now())
+	new_text := fmt.aprintf("It's %02d:%02d:%02d", hour, min, sec)
+	defer delete(new_text)
+	
+	pink.glyphset_layout_clear(&ctx.layout)
+	pink.glyphset_layout_append(&ctx.layout, new_text)
+	
 	pink.canvas_draw_text(
 		&ctx.program.canvas,
 		&ctx.layout,
