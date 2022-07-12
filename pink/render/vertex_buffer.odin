@@ -7,7 +7,7 @@ BUFFER_INITIAL_LENGTH :: 40
 BUFFER_RESIZE_CAPACITY_MULTIPLIER :: 1.5
 
 Vertex_Buffer :: struct($Data: typeid) {
-	ptr: wgpu.Buffer,
+	handle: wgpu.Buffer,
 	size: int,
 	data: [dynamic]Data,
 	usage_flags: wgpu.BufferUsageFlags,
@@ -15,13 +15,13 @@ Vertex_Buffer :: struct($Data: typeid) {
 
 // Initializes a buffer.
 vbuffer_init :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	buffer: ^Vertex_Buffer($Data),
 	initial_length := BUFFER_INITIAL_LENGTH,
 ) {
 	if initial_length > 0 {
 		buffer.size = initial_length * size_of(Data)
-		buffer.ptr = wgpu.DeviceCreateBuffer(
+		buffer.handle = wgpu.DeviceCreateBuffer(
 			renderer.device,
 			&wgpu.BufferDescriptor{
 				usage = buffer.usage_flags,
@@ -35,9 +35,9 @@ vbuffer_init :: proc(
 vbuffer_destroy :: proc(
 	buffer: ^Vertex_Buffer($Data),
 ) {
-	if buffer.ptr != nil {
-		wgpu.BufferDestroy(buffer.ptr)
-		wgpu.BufferDrop(buffer.ptr)
+	if buffer.handle != nil {
+		wgpu.BufferDestroy(buffer.handle)
+		wgpu.BufferDrop(buffer.handle)
 	}
 	delete(buffer.data)
 }
@@ -61,20 +61,20 @@ vbuffer_append :: #force_inline proc(
 // Copies data from `buffer.data` to the GPU-side buffer, resizing it if need
 // be.
 vbuffer_queue_copy_data :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	buffer: ^Vertex_Buffer($Data),
 	clear_on_finished := true,
 ) {
 	new_size := len(buffer.data) * size_of(Data)
 
 	if new_size > buffer.size {
-		if buffer.ptr != nil {
-			wgpu.BufferDestroy(buffer.ptr)
-			wgpu.BufferDrop(buffer.ptr)
+		if buffer.handle != nil {
+			wgpu.BufferDestroy(buffer.handle)
+			wgpu.BufferDrop(buffer.handle)
 		}
 		target_size := int(f64(new_size) * BUFFER_RESIZE_CAPACITY_MULTIPLIER)
 		buffer.size = new_size
-		buffer.ptr = wgpu.DeviceCreateBuffer(
+		buffer.handle = wgpu.DeviceCreateBuffer(
 			renderer.device,
 			&wgpu.BufferDescriptor{
 				usage = buffer.usage_flags,
@@ -86,7 +86,7 @@ vbuffer_queue_copy_data :: proc(
 	if len(buffer.data) > 0 {
 		wgpu.QueueWriteBuffer(
 			renderer.queue,
-			buffer.ptr,
+			buffer.handle,
 			0,
 			raw_data(buffer.data),
 			c.size_t(new_size),

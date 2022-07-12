@@ -61,7 +61,7 @@ image_destroy :: proc(image: ^Image) {
 
 // Retrieves the image's texture bind group, queueing a image data copy
 // operation if it hasn't been initialized yet.
-_image_fetch_bind_group :: proc(image: ^Image, renderer: ^render.Context) ->
+_image_fetch_bind_group :: proc(image: ^Image, renderer: ^render.Renderer) ->
 	wgpu.BindGroup {
 	if !image.core.ready {
 		_image_core_init(image, renderer)
@@ -71,7 +71,7 @@ _image_fetch_bind_group :: proc(image: ^Image, renderer: ^render.Context) ->
 }
 
 // Initializes the image's GPU-side data.
-_image_core_init :: proc(image: ^Image, renderer: ^render.Context) {
+_image_core_init :: proc(image: ^Image, renderer: ^render.Renderer) {
 	render.texture_init(
 		renderer,
 		&image.core.texture,

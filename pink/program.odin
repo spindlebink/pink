@@ -26,7 +26,8 @@ Program :: struct {
 }
 
 Program_Core :: struct {
-	renderer: render.Context,
+	renderer: render.Renderer,
+	render_pass: render.Render_Pass,
 	phase: enum {
 		Limbo,
 		Configured,
@@ -119,7 +120,7 @@ program_load :: proc(
 
 	if surface, ok := _window_create_wgpu_surface(&program.window); ok {
 		program.core.renderer.surface = surface
-		render.context_init(&program.core.renderer)
+		render.renderer_init(&program.core.renderer)
 	} else {
 		fmt.eprintln("Failed to obtain render surface from window")
 		return false
@@ -189,14 +190,14 @@ program_run :: proc(
 		
 		if first_frame || size_changed || maximized {
 			_window_fetch_info(&program.window)
-			render.context_resize(
+			render.renderer_resize(
 				&program.core.renderer,
 				program.window.width,
 				program.window.height,
 			)
 		}
 		
-		render.context_begin_frame(&program.core.renderer)
+		render.renderer_begin_frame(&program.core.renderer)
 		
 		if program.hooks.on_update != nil do program.hooks.on_update(program.clock.delta_ms)
 		if program.hooks.on_update_fixed != nil {
@@ -208,7 +209,7 @@ program_run :: proc(
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
 		_canvas_flush(&program.canvas, &program.core.renderer)
-		render.context_end_frame(&program.core.renderer)
+		render.renderer_end_frame(&program.core.renderer)
 
 		first_frame = false
 	}
@@ -221,7 +222,7 @@ program_exit :: proc(
 	program: ^Program,
 ) -> bool {
 	_canvas_destroy(&program.canvas)
-	render.context_destroy(&program.core.renderer)
+	render.renderer_destroy(&program.core.renderer)
 	_window_destroy(&program.window)
 	sdl.Quit()
 	

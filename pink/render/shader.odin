@@ -4,7 +4,7 @@ import "core:mem"
 import "wgpu"
 
 shader_module_create :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	header: []u8,
 	body: []u8,
 ) -> wgpu.ShaderModule {

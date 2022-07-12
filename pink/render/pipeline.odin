@@ -6,7 +6,7 @@ import "wgpu"
 // Structure to hold a pipeline layout and render pipeline as a bundle.
 Pipeline :: struct {
 	layout: wgpu.PipelineLayout,
-	pipeline: wgpu.RenderPipeline,
+	handle: wgpu.RenderPipeline,
 }
 
 // Simplified pipeline descriptor containing only the information we actually
@@ -23,7 +23,7 @@ Pipeline_Descriptor :: struct {
 // Initializes a renderer pipeline using a descriptor.
 pipeline_init :: proc(
 	pipeline: ^Pipeline,
-	renderer: ^Context,
+	renderer: ^Renderer,
 	desc: Pipeline_Descriptor,
 ) {
 	pipeline.layout = wgpu.DeviceCreatePipelineLayout(
@@ -35,7 +35,7 @@ pipeline_init :: proc(
 		},
 	)
 	
-	pipeline.pipeline = wgpu.DeviceCreateRenderPipeline(
+	pipeline.handle = wgpu.DeviceCreateRenderPipeline(
 		renderer.device,
 		&wgpu.RenderPipelineDescriptor{
 			label = cstring(raw_data(desc.label)),
@@ -85,6 +85,6 @@ pipeline_init :: proc(
 pipeline_deinit :: proc(
 	pipeline: ^Pipeline,
 ) {
-	wgpu.RenderPipelineDrop(pipeline.pipeline)
+	wgpu.RenderPipelineDrop(pipeline.handle)
 	wgpu.PipelineLayoutDrop(pipeline.layout)
 }

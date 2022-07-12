@@ -15,7 +15,7 @@ Uniform_Buffer :: struct($Data: typeid) {
 
 // Initializes a uniform buffer.
 ubuffer_init :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	buffer: ^Uniform_Buffer($Data),
 ) {
 	buffer.ptr = wgpu.DeviceCreateBuffer(
@@ -78,7 +78,7 @@ ubuffer_destroy :: proc(
 // Copies data from `buffer.data` to the GPU-side buffer, resizing it if need
 // be.
 ubuffer_queue_copy_data :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	buffer: ^Uniform_Buffer($Data),
 ) {
 	wgpu.QueueWriteBuffer(

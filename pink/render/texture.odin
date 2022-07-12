@@ -45,7 +45,7 @@ Texture_Options :: struct {
 
 // Initializes a texture with a given width, height, and options.
 texture_init :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	texture: ^Texture,
 	width: uint,
 	height: uint,
@@ -99,7 +99,7 @@ texture_init :: proc(
 		},
 	)
 
-	texture.bind_group = context_create_basic_texture_bind_group(
+	texture.bind_group = renderer_create_basic_texture_bind_group(
 		renderer,
 		texture.view,
 		texture.sampler,
@@ -120,7 +120,7 @@ texture_deinit :: proc(
 
 // Queues a write operation to copy data to a texture.
 texture_queue_copy :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	texture: ^Texture,
 	data: []u8,
 	x, y, w, h: uint,
@@ -154,7 +154,7 @@ texture_queue_copy :: proc(
 
 // Queues a write operation to copy data of the texture's own size to a texture.
 texture_queue_copy_full :: proc(
-	renderer: ^Context,
+	renderer: ^Renderer,
 	texture: ^Texture,
 	data: []u8,
 ) {

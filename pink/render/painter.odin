@@ -3,6 +3,9 @@ package pink_render
 import "core:c"
 import "wgpu"
 
+PAINTER_VERTICES_BUFFER_INDEX :: 0
+PAINTER_INSTANCES_BUFFER_INDEX :: 1
+
 Painter :: struct(
 	$V: typeid,
 	$I: typeid,
@@ -37,7 +40,7 @@ painter_append_insts :: #force_inline proc(p: ^Painter($V, $I), insts: []I) {
 
 painter_init :: proc(
 	painter: ^Painter($V, $I),
-	renderer: ^Context,
+	renderer: ^Renderer,
 	desc: Painter_Descriptor,
 ) {
 	painter.vertices.usage_flags = {.Vertex, .CopyDst}

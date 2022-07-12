@@ -15,7 +15,8 @@ Canvas :: struct {
 }
 
 // Internal canvas state.
-Canvas_Core :: struct {	
+Canvas_Core :: struct {
+	render_pass: render.Render_Pass,
 	commands: [dynamic]Canvas_Cmd_Invocation,
 	draw_state_buffer: render.Uniform_Buffer(Canvas_Draw_State_Uniform),
 	primitive_shader, image_shader, slice_shader: wgpu.ShaderModule,
@@ -56,7 +57,7 @@ _canvas_prim_inst_from_transform :: #force_inline proc(
 // Initializes a canvas.
 _canvas_init :: proc(
 	canvas: ^Canvas,
-	renderer: ^render.Context,
+	renderer: ^render.Renderer,
 ) {
 	canvas.core.primitive_shader = render.shader_module_create(
 		renderer,
@@ -104,7 +105,7 @@ _canvas_destroy :: proc(
 // Initializes a canvas's primitive and image pipelines.
 _canvas_init_pipelines :: proc(
 	canvas: ^Canvas,
-	renderer: ^render.Context,
+	renderer: ^render.Renderer,
 ) {
 	render.painter_init(
 		&canvas.core.prims,

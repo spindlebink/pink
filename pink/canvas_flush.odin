@@ -8,7 +8,7 @@ import "render/wgpu"
 // frame.
 _canvas_flush :: proc(
 	canvas: ^Canvas,
-	renderer: ^render.Context,
+	renderer: ^render.Renderer,
 ) {
 	if renderer.fresh {
 		_canvas_init(canvas, renderer)
@@ -24,23 +24,21 @@ _canvas_flush :: proc(
 	// Write new renderer transformation matrix to transform buffer
 	if renderer.size_changed || renderer.fresh {
 		canvas.core.draw_state_buffer.data.window_to_device =
-			render.context_compute_window_to_device_matrix(renderer)
+			render.renderer_compute_window_to_device_matrix(renderer)
 		render.ubuffer_queue_copy_data(renderer, &canvas.core.draw_state_buffer)
 	}
 
+	canvas.core.render_pass = render.render_pass_begin(renderer)
+
 	// Common canvas state used for global transform, etc. will always
 	// be in slot 0
-	wgpu.RenderPassEncoderSetBindGroup(
-		renderer.render_pass_encoder,
+	render.render_pass_bind_uniform_buffer(
+		canvas.core.render_pass,
 		0,
-		canvas.core.draw_state_buffer.bind_group,
-		0,
-		nil,
+		canvas.core.draw_state_buffer,
 	)
 
-	curr_primitive := 0
-	curr_image := 0
-	curr_slice := 0
+	curr_primitive, curr_image, curr_slice: uint
 
 	for i := 0; i < len(canvas.core.commands); i += 1 {
 		command := canvas.core.commands[i]
@@ -52,15 +50,19 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Primitive_Cmd:
-			render.context_attach_painter(renderer, &canvas.core.prims)
+			render.render_pass_attach_painter(
+				&canvas.core.render_pass,
+				&canvas.core.prims,
+			)
+
 			switch command.data.(Canvas_Draw_Primitive_Cmd).type {
 			case .Rect:
-				wgpu.RenderPassEncoderDraw(
-					renderer.render_pass_encoder,
-					6, // vertices per rect
-					c.uint32_t(command.times),
-					0,
-					c.uint32_t(curr_primitive),
+				render.render_pass_draw(
+					canvas.core.render_pass,
+					0, // Rectangle primitive starts at 0
+					6, // and there are 6 vertices per rectangle primitive
+					curr_primitive,
+					command.times,
 				)
 			}
 
@@ -71,26 +73,23 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Img_Cmd:
-			render.context_attach_painter(renderer, &canvas.core.imgs)
-
-			wgpu.RenderPassEncoderSetBindGroup(
-				renderer.render_pass_encoder,
-				1, // textures go in bind group 1 b/c global canvas state goes in 0--TODO: use constants for future-proofing
+			render.render_pass_attach_painter(&canvas.core.render_pass, &canvas.core.imgs)
+			render.render_pass_bind(
+				canvas.core.render_pass,
+				1,
 				_image_fetch_bind_group(
 					command.data.(Canvas_Draw_Img_Cmd).image,
 					renderer,
 				),
-				0,
-				nil,
 			)
-			wgpu.RenderPassEncoderDraw(
-				renderer.render_pass_encoder,
-				6, // vertices per rect
-				c.uint32_t(command.times),
-				0,
-				c.uint32_t(curr_image),
+			render.render_pass_draw(
+				canvas.core.render_pass,
+				0, // Rectangle primitive starts at 0
+				6, // and there are 6 vertices per rectangle primitive
+				curr_primitive,
+				command.times,
 			)
-			
+
 			curr_image += command.times
 		
 		
@@ -99,31 +98,28 @@ _canvas_flush :: proc(
 		//
 		
 		case Canvas_Draw_Slice_Cmd:
-			render.context_attach_painter(renderer, &canvas.core.slices)
-
-			wgpu.RenderPassEncoderSetBindGroup(
-				renderer.render_pass_encoder,
+			render.render_pass_attach_painter(&canvas.core.render_pass, &canvas.core.slices)
+			render.render_pass_bind(
+				canvas.core.render_pass,
 				1,
 				_image_fetch_bind_group(
 					command.data.(Canvas_Draw_Slice_Cmd).image,
 					renderer,
 				),
-				0,
-				nil,
 			)
-			wgpu.RenderPassEncoderDraw(
-				renderer.render_pass_encoder,
-				6, // vertices per rect
-				c.uint32_t(command.times),
-				0,
-				c.uint32_t(curr_slice),
+			render.render_pass_draw(
+				canvas.core.render_pass,
+				0, // Rectangle primitive starts at 0
+				6, // and there are 6 vertices per rectangle primitive
+				curr_primitive,
+				command.times,
 			)
-			
+
 			curr_slice += command.times
 	
 		}
 	}
 
 	clear(&canvas.core.commands)
+	render.render_pass_end(&canvas.core.render_pass)
 }
-

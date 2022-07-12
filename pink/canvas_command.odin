@@ -32,7 +32,7 @@ Canvas_Cmd :: union {
 
 Canvas_Cmd_Invocation :: struct {
 	data: Canvas_Cmd,
-	times: int,
+	times: uint,
 }
 
 // Appends a draw command to a dynamic array of them, combining the command with
