@@ -1,6 +1,7 @@
 package pink_render
 
 import "core:c"
+import "core:hash"
 import "wgpu"
 
 // Represents a basic GPU texture type.

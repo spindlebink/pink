@@ -6,6 +6,7 @@ import stbi "vendor:stb/image"
 import "render"
 import "render/wgpu"
 
+@(private)
 RGBA_CHANNELS :: 4
 
 Image :: struct {
@@ -14,6 +15,7 @@ Image :: struct {
 	core: Image_Core,
 }
 
+@(private)
 Image_Core :: struct {
 	ready: bool,
 	hash: u32,
@@ -61,19 +63,21 @@ image_destroy :: proc(image: ^Image) {
 
 // Retrieves the image's texture bind group, queueing a image data copy
 // operation if it hasn't been initialized yet.
-_image_fetch_bind_group :: proc(
+@(private)
+image_fetch_bind_group :: proc(
 	image: ^Image,
 	renderer: ^render.Renderer,
 ) -> wgpu.BindGroup {
 	if !image.core.ready {
-		_image_core_init(image, renderer)
+		image_core_init(image, renderer)
 		image.core.ready = true
 	}
 	return image.core.texture.bind_group
 }
 
 // Initializes the image's GPU-side data.
-_image_core_init :: proc(
+@(private)
+image_core_init :: proc(
 	image: ^Image,
 	renderer: ^render.Renderer,
 ) {

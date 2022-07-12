@@ -5,16 +5,22 @@ import "core:math/linalg"
 import "render"
 import "render/wgpu"
 
-@(private)
-CANVAS_SHADER_HEADER :: #load("resources/shader_header.wgsl")
-
 // Canvas context for immediate-mode rendering.
 Canvas :: struct {
 	draw_state: Canvas_Draw_State,
 	core: Canvas_Core,
 }
 
+// Canvas's current color and transform.
+Canvas_Draw_State :: struct {
+	color: Color,
+}
+
+@(private)
+CANVAS_SHADER_HEADER :: #load("resources/shader_header.wgsl")
+
 // Internal canvas state.
+@(private)
 Canvas_Core :: struct {
 	render_pass: render.Render_Pass,
 	commands: [dynamic]Canvas_Cmd_Invocation,
@@ -25,37 +31,9 @@ Canvas_Core :: struct {
 	slices: render.Painter(Canvas_Primitive_Vertex, Canvas_Slice_Instance),
 }
 
-// Canvas's current color and transform.
-Canvas_Draw_State :: struct {
-	color: Color,
-}
-
-Canvas_Draw_State_Memo :: struct {
-	mode: enum {
-		Transform,
-		Style,
-		All,
-	},
-	state: Canvas_Draw_State,
-}
-
-_canvas_prim_inst_from_transform :: #force_inline proc(
-	canvas: ^Canvas,
-	transform: Transform,
-) -> Canvas_Primitive_Instance {
-	return Canvas_Primitive_Instance{
-		translation = {
-			transform.x + transform.w * 0.5,
-			-transform.y - transform.h * 0.5,
-		},
-		scale = {transform.w * 0.5, transform.h * 0.5},
-		rotation = transform.rotation,
-		color = ([4]f32)(canvas.draw_state.color),
-	}
-}
-
 // Initializes a canvas.
-_canvas_init :: proc(
+@(private)
+canvas_init :: proc(
 	canvas: ^Canvas,
 	renderer: ^render.Renderer,
 ) {
@@ -86,27 +64,6 @@ _canvas_init :: proc(
 	canvas.core.draw_state_buffer.usage_flags = {.Uniform, .CopyDst}
 	render.ubuffer_init(renderer, &canvas.core.draw_state_buffer)
 
-	_canvas_init_pipelines(canvas, renderer)
-}
-
-// Destroys a canvas.
-_canvas_destroy :: proc(
-	canvas: ^Canvas,
-) {
-	render.painter_destroy(&canvas.core.prims)
-	render.painter_destroy(&canvas.core.imgs)
-	render.painter_destroy(&canvas.core.slices)
-
-	render.ubuffer_destroy(&canvas.core.draw_state_buffer)
-
-	delete(canvas.core.commands)
-}
-
-// Initializes a canvas's primitive and image pipelines.
-_canvas_init_pipelines :: proc(
-	canvas: ^Canvas,
-	renderer: ^render.Renderer,
-) {
 	render.painter_init(
 		&canvas.core.prims,
 		renderer,
@@ -153,4 +110,18 @@ _canvas_init_pipelines :: proc(
 			},
 		},
 	)
+}
+
+// Destroys a canvas.
+@(private)
+canvas_destroy :: proc(
+	canvas: ^Canvas,
+) {
+	render.painter_destroy(&canvas.core.prims)
+	render.painter_destroy(&canvas.core.imgs)
+	render.painter_destroy(&canvas.core.slices)
+
+	render.ubuffer_destroy(&canvas.core.draw_state_buffer)
+
+	delete(canvas.core.commands)
 }

@@ -1,3 +1,4 @@
+//+private
 package pink
 
 import "core:c"

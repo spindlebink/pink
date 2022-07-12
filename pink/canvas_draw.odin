@@ -17,7 +17,10 @@ canvas_draw_rect :: proc(
 ) {
 	render.painter_append_inst(
 		&canvas.core.prims,
-		_canvas_prim_inst_from_transform(canvas, transform),
+		canvas_prim_inst_from_transform(
+			transform,
+			canvas.draw_state.color,
+		),
 	)
 	canvas_append_cmd(canvas, Canvas_Draw_Primitive_Cmd{.Rect})
 }
@@ -33,7 +36,10 @@ canvas_draw_image :: proc(
 	render.painter_append_inst(
 		&canvas.core.imgs,
 		Canvas_Image_Instance{
-			primitive_instance = _canvas_prim_inst_from_transform(canvas, transform),
+			primitive_instance = canvas_prim_inst_from_transform(
+				transform,
+				canvas.draw_state.color,
+			),
 		},
 	)
 	canvas_append_cmd(canvas, Canvas_Draw_Img_Cmd{image})
@@ -56,7 +62,10 @@ canvas_draw_slice :: proc(
 	render.painter_append_inst(
 		&canvas.core.slices,
 		Canvas_Slice_Instance{
-			primitive_instance = _canvas_prim_inst_from_transform(canvas, transform),
+			primitive_instance = canvas_prim_inst_from_transform(
+				transform,
+				canvas.draw_state.color,
+			),
 			uv_extents = {uv_x, uv_y, uv_x + f32(slice.w) / fw, uv_y + f32(slice.h) / fh},
 		},
 	)

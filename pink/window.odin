@@ -15,13 +15,15 @@ Window :: struct {
 	core: Window_Core,
 }
 
+@(private)
 Window_Core :: struct {
 	sdl_handle: ^sdl.Window,
 	sdl_flags: sdl.WindowFlags,
 }
 
 // Initializes the game window.
-_window_init :: proc(
+@(private)
+window_init :: proc(
 	window: ^Window,
 ) -> bool {
 	when ODIN_OS == .Linux {
@@ -43,13 +45,14 @@ _window_init :: proc(
 		return false
 	}
 
-	_window_fetch_info(window)
+	window_fetch_info(window)
 	
 	return true
 }
 
 // Destroys the game window.
-_window_destroy :: proc(
+@(private)
+window_destroy :: proc(
 	window: ^Window,
 ) -> bool {
 	delete(window.title)
@@ -59,7 +62,8 @@ _window_destroy :: proc(
 }
 
 // Updates window information.
-_window_fetch_info :: proc(
+@(private)
+window_fetch_info :: proc(
 	window: ^Window,
 ) {
 	w, h: i32
@@ -71,7 +75,8 @@ _window_fetch_info :: proc(
 }
 
 // Obtains a WGPU surface from an initialized window.
-_window_create_wgpu_surface :: proc(
+@(private)
+window_create_wgpu_surface :: proc(
 	window: ^Window,
 ) -> (wgpu.Surface, bool) {
 	surf: wgpu.Surface

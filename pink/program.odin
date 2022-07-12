@@ -25,18 +25,6 @@ Program :: struct {
 	core: Program_Core,
 }
 
-Program_Core :: struct {
-	renderer: render.Renderer,
-	render_pass: render.Render_Pass,
-	phase: enum {
-		Limbo,
-		Configured,
-		Loaded,
-		Running,
-		Exited,
-	},
-}
-
 // Callbacks triggered at various points in the program's lifetime.
 Program_Hooks :: struct {
 	on_load: proc(),
@@ -63,6 +51,19 @@ Mouse_Button :: enum {
 	Left,
 	Right,
 	Middle,
+}
+
+@(private)
+Program_Core :: struct {
+	renderer: render.Renderer,
+	render_pass: render.Render_Pass,
+	phase: enum {
+		Limbo,
+		Configured,
+		Loaded,
+		Running,
+		Exited,
+	},
 }
 
 // Configures the program. Call before `program_load()`. If you skip
@@ -115,10 +116,10 @@ program_load :: proc(
 		return false
 	}
 	
-	win_success := _window_init(&program.window)
+	win_success := window_init(&program.window)
 	if !win_success do return false
 
-	if surface, ok := _window_create_wgpu_surface(&program.window); ok {
+	if surface, ok := window_create_wgpu_surface(&program.window); ok {
 		program.core.renderer.surface = surface
 		render.renderer_init(&program.core.renderer)
 	} else {
@@ -151,7 +152,7 @@ program_run :: proc(
 		
 		size_changed, minimized, maximized := false, false, false
 		event: sdl.Event
-		for sdl.PollEvent(&event) != 0 {
+		for sdl.PollEvent(&event) {
 			#partial switch event.type {
 			case .QUIT:
 				program.quit_at_frame_end = true
@@ -173,7 +174,7 @@ program_run :: proc(
 					program.hooks.on_mouse_button_down(
 						int(event.button.x),
 						int(event.button.y),
-						_mouse_button_from_sdl_button(event.button.button),
+						mouse_button_from_sdl_button(event.button.button),
 					)
 				}
 
@@ -182,14 +183,14 @@ program_run :: proc(
 					program.hooks.on_mouse_button_up(
 						int(event.button.x),
 						int(event.button.y),
-						_mouse_button_from_sdl_button(event.button.button),
+						mouse_button_from_sdl_button(event.button.button),
 					)
 				}
 			}
 		}
 		
 		if first_frame || size_changed || maximized {
-			_window_fetch_info(&program.window)
+			window_fetch_info(&program.window)
 			render.renderer_resize(
 				&program.core.renderer,
 				program.window.width,
@@ -208,7 +209,7 @@ program_run :: proc(
 		
 		if program.hooks.on_draw != nil do program.hooks.on_draw()
 
-		_canvas_flush(&program.canvas, &program.core.renderer)
+		canvas_flush(&program.canvas, &program.core.renderer)
 		render.renderer_end_frame(&program.core.renderer)
 
 		first_frame = false
@@ -221,15 +222,16 @@ program_run :: proc(
 program_exit :: proc(
 	program: ^Program,
 ) -> bool {
-	_canvas_destroy(&program.canvas)
+	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
-	_window_destroy(&program.window)
+	window_destroy(&program.window)
 	sdl.Quit()
 	
 	return true
 }
 
-_mouse_button_from_sdl_button :: proc(button: u8) -> Mouse_Button {
+@(private)
+mouse_button_from_sdl_button :: proc(button: u8) -> Mouse_Button {
 	if button == sdl.BUTTON_LEFT {
 		return .Left
 	} else if button == sdl.BUTTON_RIGHT {

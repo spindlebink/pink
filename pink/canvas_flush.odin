@@ -6,12 +6,13 @@ import "render/wgpu"
 
 // Flushes all draw commands from the canvas to the GPU. Called at the end of a
 // frame.
-_canvas_flush :: proc(
+@(private)
+canvas_flush :: proc(
 	canvas: ^Canvas,
 	renderer: ^render.Renderer,
 ) {
 	if renderer.fresh {
-		_canvas_init(canvas, renderer)
+		canvas_init(canvas, renderer)
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.prims.vertices)
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.imgs.vertices)
 		render.vbuffer_queue_copy_data(renderer, &canvas.core.slices.vertices)
@@ -77,7 +78,7 @@ _canvas_flush :: proc(
 			render.render_pass_bind(
 				canvas.core.render_pass,
 				1,
-				_image_fetch_bind_group(
+				image_fetch_bind_group(
 					command.data.(Canvas_Draw_Img_Cmd).image,
 					renderer,
 				),
@@ -102,7 +103,7 @@ _canvas_flush :: proc(
 			render.render_pass_bind(
 				canvas.core.render_pass,
 				1,
-				_image_fetch_bind_group(
+				image_fetch_bind_group(
 					command.data.(Canvas_Draw_Slice_Cmd).image,
 					renderer,
 				),
@@ -116,7 +117,6 @@ _canvas_flush :: proc(
 			)
 
 			curr_slice += command.times
-	
 		}
 	}
 
