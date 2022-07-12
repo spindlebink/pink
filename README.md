@@ -1,5 +1,7 @@
 # Pink
 
+![BSD-3 License](https://img.shields.io/badge/License-BSD--3-green.svg)
+
 A game framework in [the Odin programming language](https://odin-lang.org) modeled after [LÖVE](https://love2d.org).
 
 * [Codeberg repo](https://codeberg.org/spindlebink/pink)
