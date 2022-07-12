@@ -10,34 +10,57 @@ Context :: struct {
 	program: pink.Program,
 	
 	dosis: pink.Typeface,
+	moon: pink.Typeface,
+	glyphset: pink.Glyphset,
+	layout: pink.Glyphset_Layout,
 }
 
 on_load :: proc() {
-	ctx.dosis = pink.typeface_create(#load("res/Dosis-Regular.ttf"))
-	
-	pink._typeface_rasterize(
-		&ctx.dosis,
-		'P',
-		60.0,
+	ctx.moon = pink.typeface_create_from_data(
+		#load("resources/RubikMoonrocks-Regular.ttf"),
+		pink.Typeface_Load_Options{
+			scale = 128.0,
+		}
+	)
+	ctx.dosis = pink.typeface_create_from_data(
+		#load("resources/Dosis-Regular.ttf"),
+		pink.Typeface_Load_Options{
+			scale = 128.0,
+		}
 	)
 	
-	for y := 0; y < ctx.dosis._bitmap_height; y += 1 {
-		for x := 0; x < ctx.dosis._bitmap_width; x += 1 {
-			bit := ctx.dosis._bitmap[y * ctx.dosis._bitmap_width + x]
-			fmt.print(rune(
-				' ' if bit < 16 else
-				'░' if bit < 32 else
-				'▒' if bit < 64 else
-				'▓' if bit < 128 else
-				'█',
-			))
-		}
-		fmt.println()
+	for r, i in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!'," {
+		pink.glyphset_rasterize(
+			&ctx.glyphset,
+			// Uppercase = moon, everything else = dosis
+			i > 25 ? ctx.dosis : ctx.moon,
+			r,
+			128.0,
+		)
 	}
+
+	pink.glyphset_bake(&ctx.glyphset)
+	pink.glyphset_layout_init(
+		&ctx.layout,
+		&ctx.glyphset,
+	)
+	pink.glyphset_layout_append(&ctx.layout, "Waddle Dee Waddle Doo")
+}
+
+on_draw :: proc() {
+	pink.canvas_draw_text(
+		&ctx.program.canvas,
+		&ctx.layout,
+		100,
+		100,
+	)
 }
 
 on_exit :: proc() {
+	pink.typeface_destroy(ctx.moon)
 	pink.typeface_destroy(ctx.dosis)
+	pink.glyphset_destroy(ctx.glyphset)
+	pink.glyphset_layout_destroy(ctx.layout)
 }
 
 main :: proc() {
@@ -53,6 +76,7 @@ main :: proc() {
 	}
 
 	ctx.program.hooks.on_load = on_load
+	ctx.program.hooks.on_draw = on_draw
 	ctx.program.hooks.on_exit = on_exit
 	
 	pink.program_load(&ctx.program)
