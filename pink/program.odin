@@ -8,6 +8,9 @@ import "clock"
 
 // Config used when either no config is provided or `program_configure()` isn't
 // called.
+//
+// You can configure your program easily by creating a copy of this constant and
+// only modifying the parameters you need.
 PROGRAM_DEFAULT_CONFIG :: Program_Config{
 	window_title = "Window",
 	window_width = 1920,
@@ -31,7 +34,8 @@ Program :: struct {
 	core: Program_Core,
 }
 
-// Callbacks triggered at various points in the program's lifetime.
+// Callbacks triggered at various points in the program's lifetime. You can set
+// these for your program using `program.hooks.on_* = your_callback`.
 Program_Hooks :: struct {
 	on_load: proc(),
 	on_ready: proc(),
@@ -55,6 +59,7 @@ Program_Config :: struct {
 	vsync_enabled: bool,
 }
 
+// Mouse button used in `on_mouse_button_*` callbacks.
 Mouse_Button :: enum {
 	Left,
 	Right,
@@ -85,6 +90,7 @@ program_configure :: proc(
 		return false
 	}
 	
+	program.window.title = config.window_title
 	program.window.width = config.window_width
 	program.window.height = config.window_height
 	
@@ -107,7 +113,7 @@ program_configure :: proc(
 	return true
 }
 
-// Initializes the program.
+// Initializes the program. Must be called before running or exiting.
 program_load :: proc(
 	program: ^Program,
 ) -> bool {
@@ -141,7 +147,7 @@ program_load :: proc(
 	return true
 }
 
-// Runs the program.
+// Runs the program. Must be called after load.
 program_run :: proc(
 	program: ^Program,
 ) -> bool {
@@ -260,7 +266,7 @@ program_run :: proc(
 	return true
 }
 
-// Shuts the program down.
+// Shuts the program down. Must be called after running.
 program_exit :: proc(
 	program: ^Program,
 ) -> bool {
