@@ -22,6 +22,8 @@ Program :: struct {
 	canvas: Canvas,
 	quit_at_frame_end: bool,
 
+	keyboard_state: map[Key]bool,
+
 	core: Program_Core,
 }
 
@@ -33,6 +35,8 @@ Program_Hooks :: struct {
 	on_update_fixed: proc(f64),
 	on_mouse_button_down: proc(int, int, Mouse_Button),
 	on_mouse_button_up: proc(int, int, Mouse_Button),
+	on_key_down: proc(Key),
+	on_key_up: proc(Key),
 	on_draw: proc(),
 	on_exit: proc(),
 }
@@ -147,8 +151,14 @@ program_run :: proc(
 	first_frame := true
 	clock.clock_reset(&program.clock)
 
+	// program.keyboard_state = key_state_from_sdl()
+	key_state_from_sdl(&program.keyboard_state)
+	
 	for !program.quit_at_frame_end {
 		clock.clock_tick(&program.clock)
+
+		// program.keyboard_state = key_state_from_sdl()
+		key_state_from_sdl(&program.keyboard_state)
 		
 		size_changed, minimized, maximized := false, false, false
 		event: sdl.Event
@@ -156,6 +166,7 @@ program_run :: proc(
 			#partial switch event.type {
 			case .QUIT:
 				program.quit_at_frame_end = true
+
 			case .WINDOWEVENT:
 				#partial switch event.window.event {
 				case .SIZE_CHANGED:
@@ -169,12 +180,13 @@ program_run :: proc(
 					maximized = true
 					size_changed = true
 				}
+
 			case .MOUSEBUTTONDOWN:
 				if program.hooks.on_mouse_button_down != nil {
 					program.hooks.on_mouse_button_down(
 						int(event.button.x),
 						int(event.button.y),
-						mouse_button_from_sdl_button(event.button.button),
+						mouse_button_from_sdl(event.button.button),
 					)
 				}
 
@@ -183,9 +195,26 @@ program_run :: proc(
 					program.hooks.on_mouse_button_up(
 						int(event.button.x),
 						int(event.button.y),
-						mouse_button_from_sdl_button(event.button.button),
+						mouse_button_from_sdl(event.button.button),
 					)
 				}
+			
+			case .KEYDOWN:
+				key := event.key.keysym
+				if pk_key, found := sdl_key_lookups[key.scancode]; found {
+					if program.hooks.on_key_down != nil {
+						program.hooks.on_key_down(pk_key)
+					}
+				}
+				
+			case .KEYUP:
+				key := event.key.keysym
+				if pk_key, found := sdl_key_lookups[key.scancode]; found {
+					if program.hooks.on_key_up != nil {
+						program.hooks.on_key_up(pk_key)
+					}
+				}
+			
 			}
 		}
 		
@@ -224,22 +253,11 @@ program_exit :: proc(
 ) -> bool {
 	if program.hooks.on_exit != nil do program.hooks.on_exit()
 	
+	delete(program.keyboard_state)
 	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
 	window_destroy(&program.window)
 	sdl.Quit()
 	
 	return true
-}
-
-@(private)
-mouse_button_from_sdl_button :: proc(button: u8) -> Mouse_Button {
-	if button == sdl.BUTTON_LEFT {
-		return .Left
-	} else if button == sdl.BUTTON_RIGHT {
-		return .Right
-	} else if button == sdl.BUTTON_MIDDLE {
-		return .Middle
-	}
-	return .Left
 }
