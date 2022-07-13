@@ -243,6 +243,20 @@ sdl_key_lookups := map[sdl.Scancode]Key{
 }
 
 @(private)
+sdl_mod_key_lookups := map[sdl.KeymodFlag]Modifier_Key{
+	.LSHIFT = .L_Shift,
+	.RSHIFT = .R_Shift,
+	.LCTRL = .L_Ctrl,
+	.RCTRL = .R_Ctrl,
+	.LALT = .L_Alt,
+	.RALT = .R_Alt,
+	.LGUI = .L_Super,
+	.RGUI = .R_Super,
+	.NUM = .Num_Lock,
+	.CAPS = .Caps_Lock,
+}
+
+@(private)
 mouse_button_from_sdl :: proc(button: u8) -> Mouse_Button {
 	if button == sdl.BUTTON_LEFT {
 		return .Left
@@ -252,6 +266,27 @@ mouse_button_from_sdl :: proc(button: u8) -> Mouse_Button {
 		return .Middle
 	}
 	return .Left
+}
+
+@(private)
+key_mod_state_from_sdl :: proc() -> Modifier_Keys {
+	mods: Modifier_Keys
+	sdl_mods := sdl.GetModState()
+	
+	for key_mod in sdl.KeymodFlag {
+		if key_mod in sdl_mods {
+			if pk_mod, found := sdl_mod_key_lookups[key_mod]; found {
+				mods += {pk_mod}
+			}
+		}
+	}
+	
+	if .LSHIFT in sdl_mods || .RSHIFT in sdl_mods do mods += {.Shift}
+	if .LALT in sdl_mods || .RALT in sdl_mods do mods += {.Alt}
+	if .LCTRL in sdl_mods || .RCTRL in sdl_mods do mods += {.Ctrl}
+	if .LGUI in sdl_mods || .RGUI in sdl_mods do mods += {.Super}
+	
+	return mods
 }
 
 // Currently not working due to unexpected Odin behavior on big bitsets

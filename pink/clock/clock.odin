@@ -11,7 +11,7 @@ Clock :: struct {
 	delta_ms: f64,
 	fixed_update_count: int,
 	fixed_update_alpha: f64,
-	frame_time_cap_ms: f64,
+	frame_target_time: time.Duration,
 	accum_ms: f64,
 }
 

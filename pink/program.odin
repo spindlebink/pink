@@ -1,10 +1,13 @@
 package pink
 
 import "core:fmt"
+import "core:time"
 import sdl "vendor:sdl2"
 import "render"
 import "clock"
 
+// Config used when either no config is provided or `program_configure()` isn't
+// called.
 PROGRAM_DEFAULT_CONFIG :: Program_Config{
 	window_title = "Window",
 	window_width = 1920,
@@ -22,7 +25,8 @@ Program :: struct {
 	canvas: Canvas,
 	quit_at_frame_end: bool,
 
-	keyboard_state: map[Key]bool,
+	key_mod_state: Modifier_Keys,
+	key_state: map[Key]bool,
 
 	core: Program_Core,
 }
@@ -85,9 +89,9 @@ program_configure :: proc(
 	program.window.height = config.window_height
 	
 	if config.framerate_cap > 0.0 {
-		program.clock.frame_time_cap_ms = 1000.0 / config.framerate_cap
+		program.clock.frame_target_time = time.Duration(1000.0 / config.framerate_cap) * time.Millisecond
 	} else {
-		program.clock.frame_time_cap_ms = 0.0
+		program.clock.frame_target_time = 0
 	}
 	
 	if config.fixed_framerate > 0.0 {
@@ -152,13 +156,15 @@ program_run :: proc(
 	clock.clock_reset(&program.clock)
 
 	// program.keyboard_state = key_state_from_sdl()
-	key_state_from_sdl(&program.keyboard_state)
+	key_state_from_sdl(&program.key_state)
+	program.key_mod_state = key_mod_state_from_sdl()
 	
 	for !program.quit_at_frame_end {
 		clock.clock_tick(&program.clock)
 
 		// program.keyboard_state = key_state_from_sdl()
-		key_state_from_sdl(&program.keyboard_state)
+		key_state_from_sdl(&program.key_state)
+		program.key_mod_state = key_mod_state_from_sdl()
 		
 		size_changed, minimized, maximized := false, false, false
 		event: sdl.Event
@@ -242,6 +248,13 @@ program_run :: proc(
 		render.renderer_end_frame(&program.core.renderer)
 
 		first_frame = false
+		
+		if program.clock.frame_target_time > 0 {
+			total_frame_time := time.diff(program.clock.now, time.now())
+			if total_frame_time < program.clock.frame_target_time {
+				time.accurate_sleep(program.clock.frame_target_time - total_frame_time)
+			}
+		}
 	}
 	
 	return true
@@ -253,11 +266,21 @@ program_exit :: proc(
 ) -> bool {
 	if program.hooks.on_exit != nil do program.hooks.on_exit()
 	
-	delete(program.keyboard_state)
+	delete(program.key_state)
 	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
 	window_destroy(&program.window)
 	sdl.Quit()
 	
+	return true
+}
+
+// Calls load, run, and exit on a program in sequence.
+program_go :: proc(
+	program: ^Program,
+) -> bool {
+	program_load(program) or_return
+	program_run(program) or_return
+	program_exit(program) or_return
 	return true
 }
