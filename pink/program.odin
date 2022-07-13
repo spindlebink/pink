@@ -23,9 +23,10 @@ PROGRAM_DEFAULT_CONFIG :: Program_Config{
 
 // The state of a program.
 Program :: struct {
+	using hooks: Program_Hooks,
+
 	clock: clock.Clock,
 	window: Window,
-	hooks: Program_Hooks,
 	canvas: Canvas,
 	quit_at_frame_end: bool,
 
