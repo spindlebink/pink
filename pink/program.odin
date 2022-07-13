@@ -1,6 +1,7 @@
 package pink
 
 import "core:fmt"
+import "core:strings"
 import "core:time"
 import sdl "vendor:sdl2"
 import "render"
@@ -90,7 +91,7 @@ program_configure :: proc(
 		return false
 	}
 	
-	program.window.title = config.window_title
+	program.window.title = strings.clone(config.window_title)
 	program.window.width = config.window_width
 	program.window.height = config.window_height
 	
