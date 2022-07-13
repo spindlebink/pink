@@ -1,6 +1,6 @@
 # Pink
 
-![BSD-3 License](https://img.shields.io/badge/License-BSD--3-green.svg)
+![BSD-3 License](https://img.shields.io/badge/license-BSD--3-green.svg)
 ![Files](https://img.shields.io/github/directory-file-count/spindlebink/pink/pink)
 ![Lines](https://img.shields.io/tokei/lines/github.com/spindlebink/pink)
 
