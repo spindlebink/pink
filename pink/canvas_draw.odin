@@ -5,13 +5,6 @@ import "core:reflect"
 import "render"
 import "render/wgpu"
 
-canvas_set_color :: proc(
-	canvas: ^Canvas,
-	color: Color,
-) {
-	canvas.draw_state.color = color
-}
-
 canvas_draw_rect :: proc(
 	canvas: ^Canvas,
 	transform: Transform,
@@ -19,8 +12,8 @@ canvas_draw_rect :: proc(
 	render.painter_append_inst(
 		&canvas.core.prims,
 		canvas_prim_inst_from_transform(
+			canvas,
 			transform,
-			canvas.draw_state.color,
 		),
 	)
 	canvas_append_cmd(canvas, Canvas_Draw_Primitive_Cmd{.Rect})
@@ -38,8 +31,8 @@ canvas_draw_image :: proc(
 		&canvas.core.imgs,
 		Canvas_Image_Instance{
 			primitive_instance = canvas_prim_inst_from_transform(
+				canvas,
 				transform,
-				canvas.draw_state.color,
 			),
 		},
 	)
@@ -64,8 +57,8 @@ canvas_draw_slice :: proc(
 		&canvas.core.slices,
 		Canvas_Slice_Instance{
 			primitive_instance = canvas_prim_inst_from_transform(
+				canvas,
 				transform,
-				canvas.draw_state.color,
 			),
 			uv_extents = {uv_x, uv_y, uv_x + f32(slice.w) / fw, uv_y + f32(slice.h) / fh},
 		},
@@ -84,6 +77,7 @@ canvas_draw_text :: proc(
 			&canvas.core.glyphs,
 			Canvas_Slice_Instance{
 				primitive_instance = canvas_prim_inst_from_transform(
+					canvas,
 					Transform{
 						{
 							x = gp.x + origin_x,
@@ -93,7 +87,6 @@ canvas_draw_text :: proc(
 						},
 						0.0,
 					},
-					canvas.draw_state.color,
 				),
 				uv_extents = gp.glyph.uv,
 			},

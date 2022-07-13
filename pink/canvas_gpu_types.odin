@@ -84,16 +84,16 @@ CANVAS_SLICE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 
 // Generates primitive instance info from a transform.
 canvas_prim_inst_from_transform :: #force_inline proc(
+	canvas: ^Canvas,
 	transform: Transform,
-	color := Color{1.0, 1.0, 1.0, 1.0},
 ) -> Canvas_Primitive_Instance {
 	return Canvas_Primitive_Instance{
 		translation = {
-			transform.x + transform.w * 0.5,
-			-transform.y - transform.h * 0.5,
+			canvas.translation.x + transform.x + transform.w * 0.5,
+			-canvas.translation.y - transform.y - transform.h * 0.5,
 		},
 		scale = {transform.w * 0.5, transform.h * 0.5},
 		rotation = transform.rotation,
-		color = ([4]f32)(color),
+		color = ([4]f32)(canvas.color),
 	}
 }

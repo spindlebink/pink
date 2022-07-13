@@ -6,15 +6,19 @@ import "core:math/linalg"
 import "render"
 import "render/wgpu"
 
+CANVAS_STATE_STACK_SIZE :: 1024
+
 // Canvas context for immediate-mode rendering.
 Canvas :: struct {
-	draw_state: Canvas_Draw_State,
+	using draw_state: Canvas_Draw_State,
 	core: Canvas_Core,
 }
 
 // Canvas's current color and transform.
 Canvas_Draw_State :: struct {
 	color: Color,
+	translation: [2]f32,
+	rotation: f32,
 }
 
 @(private)
@@ -24,6 +28,8 @@ CANVAS_SHADER_HEADER :: #load("resources/shader_header.wgsl")
 @(private)
 Canvas_Core :: struct {
 	render_pass: render.Render_Pass,
+	state_stack: [CANVAS_STATE_STACK_SIZE]Canvas_State_Memo,
+	state_head: int,
 	commands: [dynamic]Canvas_Cmd_Invocation,
 	draw_state_buffer: render.Uniform_Buffer(Canvas_Draw_State_Uniform),
 	primitive_shader,
