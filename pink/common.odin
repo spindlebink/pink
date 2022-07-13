@@ -15,6 +15,6 @@ Recti :: Rect(int)
 Rectf :: Rect(f32)
 
 Transform :: struct {
-	using bounds: Rectf,
+	using rect: Rectf,
 	rotation: f32,
 }

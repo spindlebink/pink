@@ -30,6 +30,8 @@ Program :: struct {
 	canvas: Canvas,
 	quit_at_frame_end: bool,
 
+	mouse_pos: [2]f32,
+	mouse_rel_pos: [2]f32,
 	key_mod_state: Modifier_Keys,
 	key_state: map[Key]bool,
 
@@ -43,8 +45,10 @@ Program_Hooks :: struct {
 	on_ready: proc(),
 	on_update: proc(f64),
 	on_update_fixed: proc(f64),
+	on_mouse_move: proc(f32, f32),
 	on_mouse_button_down: proc(int, int, Mouse_Button),
 	on_mouse_button_up: proc(int, int, Mouse_Button),
+	on_mouse_wheel: proc(f32, f32),
 	on_key_down: proc(Key),
 	on_key_up: proc(Key),
 	on_draw: proc(),
@@ -213,6 +217,18 @@ program_run :: proc(
 					)
 				}
 			
+			case .MOUSEWHEEL:
+				if program.hooks.on_mouse_wheel != nil {
+					program.hooks.on_mouse_wheel(
+						f32(event.wheel.x),
+						f32(event.wheel.y),
+					)
+
+					// Eventually:
+					// event.wheel.preciseX,
+					// event.wheel.preciseY,
+				}
+			
 			case .KEYDOWN:
 				key := event.key.keysym
 				if pk_key, found := sdl_key_lookups[key.scancode]; found {
@@ -227,6 +243,14 @@ program_run :: proc(
 					if program.hooks.on_key_up != nil {
 						program.hooks.on_key_up(pk_key)
 					}
+				}
+			
+			case .MOUSEMOTION:
+				me := event.motion
+				program.mouse_pos.x, program.mouse_pos.y = f32(me.x), f32(me.y)
+				program.mouse_rel_pos.x, program.mouse_rel_pos.y = f32(me.xrel), f32(me.yrel)
+				if program.hooks.on_mouse_move != nil {
+					program.hooks.on_mouse_move(program.mouse_pos.x, program.mouse_pos.y)
 				}
 			
 			}
