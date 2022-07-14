@@ -2,6 +2,7 @@
 package pink
 
 import "core:c"
+import "core:fmt"
 import "core:math/linalg"
 import "render/wgpu"
 
