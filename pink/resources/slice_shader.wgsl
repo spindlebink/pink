@@ -7,7 +7,8 @@ struct Instance {
     @location(2) translation: vec2<f32>,
     @location(3) scale: vec2<f32>,
     @location(4) rotation: f32,
-    @location(5) uv_extents: vec4<f32>,
+    @location(5) color: vec4<f32>,
+    @location(6) uv_extents: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -31,8 +32,8 @@ fn vertex_main(
     var out: VertexOutput;
 
     out.color = vec4<f32>(
-        pk_linear_to_gamma(pk_canvas_state.color.rgb),
-        pk_canvas_state.color.a,
+        pk_linear_to_gamma(instance.color.rgb),
+        instance.color.a,
     );
     
     out.position = vec4<f32>(

@@ -33,11 +33,10 @@ render_pass_attach_painter :: proc(
 			0,
 			wgpu.WHOLE_SIZE,
 		)
-		
-		painter_send_push_constants(
-			painter,
-			pass,
-		)
+		// painter_send_push_constants(
+		// 	painter,
+		// 	pass,
+		// )
 	}
 }
 

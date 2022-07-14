@@ -40,22 +40,22 @@ Canvas_Core :: struct {
 	prims: render.Painter(
 		Canvas_Primitive_Vertex,
 		Canvas_Primitive_Instance,
-		Canvas_State_Push_Constants,
+		// Canvas_State_Push_Constants,
 	),
 	imgs: render.Painter(
 		Canvas_Primitive_Vertex,
 		Canvas_Image_Instance,
-		Canvas_State_Push_Constants,
+		// Canvas_State_Push_Constants,
 	),
 	slices: render.Painter(
 		Canvas_Primitive_Vertex,
 		Canvas_Slice_Instance,
-		Canvas_State_Push_Constants,
+		// Canvas_State_Push_Constants,
 	),
 	glyphs: render.Painter(
 		Canvas_Primitive_Vertex,
 		Canvas_Slice_Instance,
-		Canvas_State_Push_Constants,
+		// Canvas_State_Push_Constants,
 	),
 }
 
@@ -91,12 +91,6 @@ canvas_init :: proc(
 
 	canvas.draw_state.color = {1.0, 1.0, 1.0, 1.0}
 
-	canvas.core.state_push_constant_range = wgpu.PushConstantRange{
-		stages = {.Vertex},
-		start = 0,
-		end = size_of(Canvas_State_Push_Constants),
-	}
-
 	render.painter_append_verts(&canvas.core.prims, CANVAS_PRIMITIVE_VERTICES)
 	render.painter_append_verts(&canvas.core.imgs, CANVAS_PRIMITIVE_VERTICES)
 	render.painter_append_verts(&canvas.core.slices, CANVAS_PRIMITIVE_VERTICES)
@@ -104,6 +98,13 @@ canvas_init :: proc(
 
 	render.ubuffer_init(renderer, &canvas.core.draw_state_buffer)
 
+	/*
+	canvas.core.state_push_constant_range = wgpu.PushConstantRange{
+		stages = {.Vertex},
+		start = 0,
+		end = size_of(Canvas_State_Push_Constants),
+	}
+	
 	canvas.core.prims.push_constant_stages = {.Vertex}
 	canvas.core.imgs.push_constant_stages = {.Vertex}
 	canvas.core.slices.push_constant_stages = {.Vertex}
@@ -117,6 +118,7 @@ canvas_init :: proc(
 	canvas.core.imgs.push_constants = initial_push_constants
 	canvas.core.slices.push_constants = initial_push_constants
 	canvas.core.glyphs.push_constants = initial_push_constants
+	*/
 
 	render.painter_init(
 		&canvas.core.prims,
@@ -127,9 +129,9 @@ canvas_init :: proc(
 			fragment_entry_point = "fragment_main",
 			vertex_attributes = CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES,
 			instance_attributes = CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES,
-			push_constant_ranges = []wgpu.PushConstantRange{
-				canvas.core.state_push_constant_range,
-			},
+			// push_constant_ranges = []wgpu.PushConstantRange{
+			// 	canvas.core.state_push_constant_range,
+			// },
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
 			},
@@ -145,9 +147,9 @@ canvas_init :: proc(
 			fragment_entry_point = "fragment_main",
 			vertex_attributes = CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES,
 			instance_attributes = CANVAS_IMAGE_INSTANCE_ATTRIBUTES,
-			push_constant_ranges = []wgpu.PushConstantRange{
-				canvas.core.state_push_constant_range,
-			},
+			// push_constant_ranges = []wgpu.PushConstantRange{
+			// 	canvas.core.state_push_constant_range,
+			// },
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
 				renderer.texture_bind_group_layout,
@@ -164,9 +166,9 @@ canvas_init :: proc(
 			fragment_entry_point = "fragment_main",
 			vertex_attributes = CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES,
 			instance_attributes = CANVAS_SLICE_INSTANCE_ATTRIBUTES,
-			push_constant_ranges = []wgpu.PushConstantRange{
-				canvas.core.state_push_constant_range,
-			},
+			// push_constant_ranges = []wgpu.PushConstantRange{
+			// 	canvas.core.state_push_constant_range,
+			// },
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
 				renderer.texture_bind_group_layout,
@@ -183,9 +185,9 @@ canvas_init :: proc(
 			fragment_entry_point = "fragment_main",
 			vertex_attributes = CANVAS_PRIMITIVE_VERTEX_ATTRIBUTES,
 			instance_attributes = CANVAS_SLICE_INSTANCE_ATTRIBUTES,
-			push_constant_ranges = []wgpu.PushConstantRange{
-				canvas.core.state_push_constant_range,
-			},
+			// push_constant_ranges = []wgpu.PushConstantRange{
+			// 	canvas.core.state_push_constant_range,
+			// },
 			bind_group_layouts = []wgpu.BindGroupLayout{
 				canvas.core.draw_state_buffer.bind_group_layout,
 				renderer.texture_bind_group_layout,

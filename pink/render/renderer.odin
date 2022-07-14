@@ -7,7 +7,7 @@ import sdl "vendor:sdl2"
 import "wgpu"
 
 MAX_BIND_GROUPS :: 2
-MAX_PUSH_CONSTANT_SIZE :: 64
+MAX_PUSH_CONSTANT_SIZE :: 0
 
 // A WGPU rendering context, bringing together all WGPU components necessary to
 // draw things to the screen. Context beyond these members (i.e. pipelines) is
@@ -294,6 +294,7 @@ renderer_init :: proc(
 		ren.surface,
 		ren.adapter,
 	)
+
 	if preferred == .BGRA8Unorm {
 		ren.render_texture_format = .BGRA8UnormSrgb
 	} else if preferred == .RGBA8Unorm {

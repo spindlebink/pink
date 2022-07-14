@@ -9,12 +9,12 @@ PAINTER_INSTANCES_BUFFER_INDEX :: 1
 Painter :: struct(
 	$V: typeid,
 	$I: typeid,
-	$P: typeid,
+	// $P: typeid,
 ) {
 	vertices: Vertex_Buffer(V),
 	instances: Vertex_Buffer(I),
-	push_constants: P,
-	push_constant_stages: wgpu.ShaderStageFlags,
+	// push_constants: P,
+	// push_constant_stages: wgpu.ShaderStageFlags,
 	pipeline: Pipeline,
 }
 
@@ -25,11 +25,11 @@ Painter_Descriptor :: struct {
 	vertex_attributes: []wgpu.VertexAttribute,
 	instance_attributes: []wgpu.VertexAttribute,
 	bind_group_layouts: []wgpu.BindGroupLayout,
-	push_constant_ranges: []wgpu.PushConstantRange,
+	// push_constant_ranges: []wgpu.PushConstantRange,
 }
 
 painter_append_verts :: #force_inline proc(
-	p: ^Painter($V, $I, $P),
+	p: ^Painter($V, $I),
 	verts: []V,
 ) {
 	vbuffer_reserve(&p.vertices, len(verts))
@@ -37,35 +37,35 @@ painter_append_verts :: #force_inline proc(
 }
 
 painter_append_inst :: #force_inline proc(
-	p: ^Painter($V, $I, $P),
+	p: ^Painter($V, $I),
 	inst: I,
 ) {
 	vbuffer_append(&p.instances, inst)
 }
 
 painter_append_insts :: #force_inline proc(
-	p: ^Painter($V, $I, $P),
+	p: ^Painter($V, $I),
 	insts: []I,
 ) {
 	vbuffer_reserve(&p.instances, len(insts))
 	for inst in insts do vbuffer_append(&p.instances, inst)
 }
 
-painter_send_push_constants :: #force_inline proc(
-	p: ^Painter($V, $I, $P),
-	render_pass: ^Render_Pass,
-) {
-	wgpu.RenderPassEncoderSetPushConstants(
-		render_pass.encoder,
-		{.Vertex},
-		0,
-		size_of(P),
-		&p.push_constants,
-	)
-}
+// painter_send_push_constants :: #force_inline proc(
+// 	p: ^Painter($V, $I),
+// 	render_pass: ^Render_Pass,
+// ) {
+// 	wgpu.RenderPassEncoderSetPushConstants(
+// 		render_pass.encoder,
+// 		{.Vertex},
+// 		0,
+// 		size_of(P),
+// 		&p.push_constants,
+// 	)
+// }
 
 painter_init :: proc(
-	painter: ^Painter($V, $I, $P),
+	painter: ^Painter($V, $I),
 	renderer: ^Renderer,
 	desc: Painter_Descriptor,
 ) {
@@ -102,7 +102,7 @@ painter_init :: proc(
 			shader = desc.shader,
 			vertex_entry_point = desc.vertex_entry_point,
 			fragment_entry_point = desc.fragment_entry_point,
-			push_constant_ranges = desc.push_constant_ranges,
+			// push_constant_ranges = desc.push_constant_ranges,
 			buffer_layouts = []wgpu.VertexBufferLayout{
 				vert_buffer_layout,
 				inst_buffer_layout,
@@ -113,7 +113,7 @@ painter_init :: proc(
 }
 
 painter_destroy :: proc(
-	painter: ^Painter($V, $I, $P),
+	painter: ^Painter($V, $I),
 ) {
 	pipeline_deinit(&painter.pipeline)
 	vbuffer_destroy(&painter.vertices)

@@ -175,7 +175,7 @@ program_run :: proc(
 		clock.clock_tick(&program.clock)
 
 		// program.keyboard_state = key_state_from_sdl()
-		key_state_from_sdl(&program.key_state)
+		// key_state_from_sdl(&program.key_state)
 		program.key_mod_state = key_mod_state_from_sdl()
 		
 		size_changed, minimized, maximized := false, false, false

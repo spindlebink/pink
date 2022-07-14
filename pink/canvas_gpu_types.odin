@@ -6,7 +6,7 @@ import "core:math/linalg"
 import "render/wgpu"
 
 Canvas_State_Push_Constants :: struct {
-	color: [4]f32,
+	// color: [4]f32,
 }
 
 Canvas_Draw_State_Uniform :: struct {
@@ -22,6 +22,7 @@ Canvas_Primitive_Instance :: struct {
 	translation: [2]f32,
 	scale: [2]f32,
 	rotation: f32,
+	color: [4]f32,
 }
 
 Canvas_Image_Instance :: struct {
@@ -66,6 +67,10 @@ CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, rotation)),
 		format = .Float32,
 	},
+	wgpu.VertexAttribute{
+		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, color)),
+		format = .Float32x4,
+	}
 }
 
 CANVAS_IMAGE_INSTANCE_ATTRIBUTES :: CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES
@@ -74,6 +79,7 @@ CANVAS_SLICE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[0],
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[1],
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[2],
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[3],
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Slice_Instance, uv_extents)),
 		format = .Float32x4,
@@ -92,5 +98,6 @@ canvas_prim_inst_from_transform :: #force_inline proc(
 		},
 		scale = {transform.w * 0.5, transform.h * 0.5},
 		rotation = transform.rotation,
+		color = ([4]f32)(canvas.draw_state.color),
 	}
 }

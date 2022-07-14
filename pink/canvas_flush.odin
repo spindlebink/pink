@@ -49,6 +49,7 @@ canvas_flush :: proc(
 
 		switch in command.data {
 		
+		/*
 		case Canvas_Set_Color_Cmd:
 			color := command.data.(Canvas_Set_Color_Cmd).color
 			new_constants := Canvas_State_Push_Constants{
@@ -67,6 +68,7 @@ canvas_flush :: proc(
 				size_of(Canvas_State_Push_Constants),
 				&new_constants,
 			)
+		*/
 		
 		//
 		// Draw primitive
