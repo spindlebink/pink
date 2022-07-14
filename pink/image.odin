@@ -2,6 +2,7 @@ package pink
 
 import "core:c"
 import "core:hash"
+import "core:math"
 import stbi "vendor:stb/image"
 import "render"
 import "render/wgpu"
@@ -56,9 +57,34 @@ image_create_from_data :: proc(
 }
 
 // Destroys an image.
-image_destroy :: proc(image: ^Image) {
+image_destroy :: proc(
+	image: ^Image,
+) {
 	stbi.image_free(image.core.data)
 	if image.core.ready do render.texture_deinit(&image.core.texture)
+}
+
+// Initializes a slice of image slices according to the dimensions of an image.
+image_atlas_slices_init :: proc(
+	image: ^Image,
+	cols, rows: int,
+	slices: []Recti,
+) {
+	assert(cols > 0 && rows > 0 && len(slices) >= cols * rows)
+	
+	slice_w := int(math.floor(f32(image.width) / f32(cols)))
+	slice_h := int(math.floor(f32(image.height) / f32(rows)))
+	
+	for y := 0; y < rows; y += 1 {
+		for x := 0; x < cols; x += 1 {
+			slices[y * cols + x] = Recti{
+				x = x * slice_w,
+				y = y * slice_h,
+				w = slice_w,
+				h = slice_h,
+			}
+		}
+	}
 }
 
 // Retrieves the image's texture bind group, queueing a image data copy
