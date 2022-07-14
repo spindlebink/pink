@@ -61,7 +61,7 @@ canvas_pop :: proc(
 
 canvas_set_color :: #force_inline proc(
 	canvas: ^Canvas,
-	color: Color,
+	color := Color{1.0, 1.0, 1.0, 1.0},
 ) {
 	canvas.draw_state.color = color
 	// canvas_append_cmd(canvas, Canvas_Set_Color_Cmd{([4]f32)(color)})
