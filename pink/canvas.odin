@@ -109,6 +109,15 @@ canvas_init :: proc(
 	canvas.core.slices.push_constant_stages = {.Vertex}
 	canvas.core.glyphs.push_constant_stages = {.Vertex}
 
+	initial_push_constants := Canvas_State_Push_Constants{
+		color = {1, 1, 1, 1},
+	}
+	
+	canvas.core.prims.push_constants = initial_push_constants
+	canvas.core.imgs.push_constants = initial_push_constants
+	canvas.core.slices.push_constants = initial_push_constants
+	canvas.core.glyphs.push_constants = initial_push_constants
+
 	render.painter_init(
 		&canvas.core.prims,
 		renderer,
