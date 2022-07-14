@@ -290,10 +290,17 @@ renderer_init :: proc(
 		ren,
 	)
 
-	ren.render_texture_format = wgpu.SurfaceGetPreferredFormat(
+	preferred := wgpu.SurfaceGetPreferredFormat(
 		ren.surface,
 		ren.adapter,
 	)
+	if preferred == .BGRA8Unorm {
+		ren.render_texture_format = .BGRA8UnormSrgb
+	} else if preferred == .RGBA8Unorm {
+		ren.render_texture_format = .RGBA8UnormSrgb
+	} else {
+		panic("unknown GPU error occurred--spec noncompliant")
+	}
 
 	group_entries := []wgpu.BindGroupLayoutEntry{
 		wgpu.BindGroupLayoutEntry{
