@@ -25,9 +25,9 @@ ROTATION_SPEED_BASE :: f32(0.05)
 PER_MORE :: 1000
 
 on_load :: proc() {
-	ctx.image = pink.image_create(
+	ctx.image = pink.image_create_from_data(
 		#load("wut.png"),
-		pink.Image_Load_Options{
+		pink.Image_Options{
 			mag_filter = .Nearest,
 		},
 	)
@@ -66,12 +66,14 @@ on_draw :: proc() {
 	sw, sh := f32(ctx.image.width) * 2, f32(ctx.image.height) * 2
 	for _, i in ctx.instances {
 		inst := &ctx.instances[i]
+		test := inst.pos.yx
 		pink.canvas_draw_image(
 			&ctx.program.canvas,
 			&ctx.image,
-			inst.pos[0] - hw, inst.pos[1] - hh,
-			sw, sh,
-			inst.rot,
+			pink.Transform{
+				rect = {x = inst.pos.x, y = inst.pos.y, w = sw, h = sh},
+				rotation = inst.rot,
+			}
 		)
 	}
 }
