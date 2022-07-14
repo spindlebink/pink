@@ -7,8 +7,9 @@ struct Instance {
     @location(2) translation: vec2<f32>,
     @location(3) scale: vec2<f32>,
     @location(4) rotation: f32,
-    @location(5) color: vec4<f32>,
-    @location(6) uv_extents: vec4<f32>,
+    @location(5) origin: vec2<f32>,
+    @location(6) color: vec4<f32>,
+    @location(7) uv_extents: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -42,6 +43,7 @@ fn vertex_main(
             instance.translation,
             instance.scale,
             instance.rotation,
+            instance.origin,
         ),
         1.0, 1.0,
     ) * pk_render_state.window_to_device;

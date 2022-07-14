@@ -85,6 +85,7 @@ canvas_draw_text :: proc(
 							w = f32(gp.glyph.w),
 							h = f32(gp.glyph.h),
 						},
+						{0, 0},
 						0.0,
 					},
 				),

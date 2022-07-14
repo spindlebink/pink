@@ -16,5 +16,6 @@ Rectf :: Rect(f32)
 
 Transform :: struct {
 	using rect: Rectf,
+	origin: [2]f32,
 	rotation: f32,
 }

@@ -43,6 +43,7 @@ on_draw :: proc() {
 				f32(game_state.program.window.width) * 0.5 - 10.0,
 				f32(game_state.program.window.height) * 0.5 - 10.0,
 			},
+			{0.0, 0.0},
 			0.0,
 		},
 	)
@@ -70,11 +71,13 @@ on_draw :: proc() {
 			if (x + y) % 2 == 0 {
 				pink.canvas_draw_rect(
 					&game_state.program.canvas,
-					{{
-					px, py,
-					rw, rh,
-					},
-					game_state.rect_rotation + px * 0.1 + py * 0.1,
+					{
+						{
+							px, py,
+							rw, rh,
+						},
+						{0.0, 0.0},
+						game_state.rect_rotation,
 					},
 				)
 			} else {
@@ -84,7 +87,11 @@ on_draw :: proc() {
 					pink.Recti{
 						0, 0, int(game_state.kenney_img.width / 4), int(game_state.kenney_img.height),
 					},
-					{{px, py, 0, 0}, 0},
+					{
+						{px, py, 0, 0},
+						{0, 0},
+						0,
+					},
 				)
 			}
 		}

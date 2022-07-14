@@ -22,6 +22,7 @@ Canvas_Primitive_Instance :: struct {
 	translation: [2]f32,
 	scale: [2]f32,
 	rotation: f32,
+	origin: [2]f32,
 	color: [4]f32,
 }
 
@@ -68,6 +69,10 @@ CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 		format = .Float32,
 	},
 	wgpu.VertexAttribute{
+		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, origin)),
+		format = .Float32x2,
+	},
+	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Primitive_Instance, color)),
 		format = .Float32x4,
 	}
@@ -80,6 +85,7 @@ CANVAS_SLICE_INSTANCE_ATTRIBUTES :: []wgpu.VertexAttribute{
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[1],
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[2],
 	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[3],
+	CANVAS_PRIMITIVE_INSTANCE_ATTRIBUTES[4],
 	wgpu.VertexAttribute{
 		offset = c.uint64_t(offset_of(Canvas_Slice_Instance, uv_extents)),
 		format = .Float32x4,
@@ -98,6 +104,10 @@ canvas_prim_inst_from_transform :: #force_inline proc(
 		},
 		scale = {transform.w * 0.5, transform.h * 0.5},
 		rotation = transform.rotation,
+		origin = {
+			-transform.origin.x * 2.0 + 1.0,
+			-transform.origin.y * 2.0 + 1.0,
+		},
 		color = ([4]f32)(canvas.draw_state.color),
 	}
 }
