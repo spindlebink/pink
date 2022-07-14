@@ -7,11 +7,12 @@ import "core:time"
 // information.
 Clock :: struct {
 	now: time.Time,
+	frame_time: time.Duration,
+	frame_target_time: time.Duration,
 	delta_ms_fixed: f64,
 	delta_ms: f64,
 	fixed_update_count: int,
 	fixed_update_alpha: f64,
-	frame_target_time: time.Duration,
 	accum_ms: f64,
 }
 
@@ -28,8 +29,8 @@ clock_tick :: proc(
 	clock: ^Clock,
 ) {
 	new_time := time.now()
-	frame_time := time.diff(clock.now, new_time)
-	clock.delta_ms = time.duration_milliseconds(frame_time)
+	clock.frame_time = time.diff(clock.now, new_time)
+	clock.delta_ms = time.duration_milliseconds(clock.frame_time)
 	clock.accum_ms += clock.delta_ms
 	clock.now = new_time
 

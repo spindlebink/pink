@@ -25,6 +25,7 @@ PROGRAM_DEFAULT_CONFIG :: Program_Config{
 Program :: struct {
 	using hooks: Program_Hooks,
 
+	timers: [dynamic]Timer,
 	clock: clock.Clock,
 	window: Window,
 	canvas: Canvas,
@@ -175,7 +176,7 @@ program_run :: proc(
 		clock.clock_tick(&program.clock)
 
 		// program.keyboard_state = key_state_from_sdl()
-		// key_state_from_sdl(&program.key_state)
+		key_state_from_sdl(&program.key_state)
 		program.key_mod_state = key_mod_state_from_sdl()
 		
 		size_changed, minimized, maximized := false, false, false
@@ -267,6 +268,8 @@ program_run :: proc(
 		
 		render.renderer_begin_frame(&program.core.renderer)
 		
+		timers_update(&program.timers, program.clock.now, program.clock.frame_time)
+		
 		if program.hooks.on_update != nil do program.hooks.on_update(program.clock.delta_ms)
 		if program.hooks.on_update_fixed != nil {
 			for i := 0; i < program.clock.fixed_update_count; i += 1 {
@@ -298,6 +301,7 @@ program_exit :: proc(
 ) -> bool {
 	if program.hooks.on_exit != nil do program.hooks.on_exit()
 	
+	delete(program.timers)
 	delete(program.key_state)
 	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
