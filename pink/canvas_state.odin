@@ -44,13 +44,14 @@ canvas_pop :: proc(
 		switch memo.type {
 		case .All:
 			canvas.draw_state = memo.state
+			canvas_set_color(canvas, memo.state.color)
 		case .Transform:
 			canvas.translation = memo.state.translation
 			// No rotation support yet
 			// canvas.translation, canvas.rotation =
 			// 	memo.state.translation, memo.state.rotation
 		case .Style:
-			canvas.color = memo.state.color
+			canvas_set_color(canvas, memo.state.color)
 		}
 	}
 }
@@ -60,23 +61,7 @@ canvas_set_color :: #force_inline proc(
 	color: Color,
 ) {
 	canvas.draw_state.color = color
-}
-
-canvas_set_color_rgba :: #force_inline proc(
-	canvas: ^Canvas,
-	r, g, b, a: f32,
-) {
-	canvas.draw_state.color.r = r
-	canvas.draw_state.color.g = g
-	canvas.draw_state.color.b = b
-	canvas.draw_state.color.a = a
-}
-
-canvas_set_color_rgb :: #force_inline proc(
-	canvas: ^Canvas,
-	r, g, b: f32,
-) {
-	canvas_set_color_rgba(canvas, r, g, b, canvas.draw_state.color.a)
+	canvas_append_cmd(canvas, Canvas_Set_Color_Cmd{([4]f32)(color)})
 }
 
 canvas_translate :: #force_inline proc(

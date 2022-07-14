@@ -7,8 +7,7 @@ struct Instance {
     @location(2) translation: vec2<f32>,
     @location(3) scale: vec2<f32>,
     @location(4) rotation: f32,
-    @location(5) color: vec4<f32>,
-    @location(6) uv_extents: vec4<f32>,
+    @location(5) uv_extents: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -24,7 +23,7 @@ struct FragmentOutput {
 @group(1) @binding(0) var image_texture: texture_2d<f32>;
 @group(1) @binding(1) var image_sampler: sampler;
 
-@stage(vertex)
+@vertex
 fn vertex_main(
     vertex: Vertex,
     instance: Instance,
@@ -32,8 +31,8 @@ fn vertex_main(
     var out: VertexOutput;
 
     out.color = vec4<f32>(
-        pk_linear_to_gamma(instance.color.rgb),
-        instance.color.a,
+        pk_linear_to_gamma(pk_canvas_state.color.rgb),
+        pk_canvas_state.color.a,
     );
     
     out.position = vec4<f32>(
@@ -54,7 +53,7 @@ fn vertex_main(
     return out;
 }
 
-@stage(fragment)
+@fragment
 fn fragment_main(
     in: VertexOutput
 ) -> FragmentOutput {

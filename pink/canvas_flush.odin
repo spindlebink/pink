@@ -1,6 +1,7 @@
 package pink
 
 import "core:c"
+import "core:fmt"
 import "render"
 import "render/wgpu"
 
@@ -32,7 +33,7 @@ canvas_flush :: proc(
 	}
 
 	canvas.core.render_pass = render.render_pass_begin(renderer)
-
+	
 	// Common canvas state used for global transform, etc. will always
 	// be in slot 0
 	render.render_pass_bind_uniform_buffer(
@@ -47,6 +48,25 @@ canvas_flush :: proc(
 		command := canvas.core.commands[i]
 
 		switch in command.data {
+		
+		case Canvas_Set_Color_Cmd:
+			color := command.data.(Canvas_Set_Color_Cmd).color
+			new_constants := Canvas_State_Push_Constants{
+				color = color,
+			}
+
+			canvas.core.prims.push_constants = new_constants
+			canvas.core.imgs.push_constants = new_constants
+			canvas.core.slices.push_constants = new_constants
+			canvas.core.glyphs.push_constants = new_constants
+
+			wgpu.RenderPassEncoderSetPushConstants(
+				canvas.core.render_pass.encoder,
+				{.Vertex},
+				0,
+				size_of(Canvas_State_Push_Constants),
+				&new_constants,
+			)
 		
 		//
 		// Draw primitive

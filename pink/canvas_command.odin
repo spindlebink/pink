@@ -7,6 +7,11 @@ import "core:reflect"
 import "render"
 import "render/wgpu"
 
+// Data required for a color set command.
+Canvas_Set_Color_Cmd :: struct {
+	color: [4]f32,
+}
+
 // Data required for a primitive draw command.
 Canvas_Draw_Primitive_Cmd :: struct {
 	type: enum {
@@ -32,6 +37,7 @@ Canvas_Draw_Glyph_Cmd :: struct {
 
 // A draw command.
 Canvas_Cmd :: union {
+	Canvas_Set_Color_Cmd,
 	Canvas_Draw_Primitive_Cmd,
 	Canvas_Draw_Img_Cmd,
 	Canvas_Draw_Slice_Cmd,
@@ -55,6 +61,10 @@ canvas_append_cmd :: proc(
 		cmd_type := reflect.union_variant_typeid(command)
 		if top_type == cmd_type {
 			switch in command {
+			case Canvas_Set_Color_Cmd:
+				canvas.core.commands[len(canvas.core.commands) - 1].data = command
+				return
+			
 			case Canvas_Draw_Primitive_Cmd:
 				cmd_prim_type := command.(Canvas_Draw_Primitive_Cmd).type
 				top_prim_type := top.data.(Canvas_Draw_Primitive_Cmd).type

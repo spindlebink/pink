@@ -7,7 +7,6 @@ struct Instance {
     @location(2) translation: vec2<f32>,
     @location(3) scale: vec2<f32>,
     @location(4) rotation: f32,
-    @location(5) color: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -19,7 +18,7 @@ struct FragmentOutput {
 	@location(0) color: vec4<f32>,
 };
 
-@stage(vertex)
+@vertex
 fn vertex_main(
     vertex: Vertex,
     instance: Instance,
@@ -27,10 +26,10 @@ fn vertex_main(
     var out: VertexOutput;
     
     out.modulation = vec4<f32>(
-        pk_linear_to_gamma(instance.color.rgb),
-        instance.color.a,
-    );
-    
+        pk_linear_to_gamma(pk_canvas_state.color.rgb),
+        pk_canvas_state.color.a,
+    );    
+
     out.position = vec4<f32>(
         pk_transform_2d(
             vertex.position,
@@ -45,7 +44,7 @@ fn vertex_main(
     return out;
 }
 
-@stage(fragment)
+@fragment
 fn fragment_main(
     in: VertexOutput
 ) -> FragmentOutput {

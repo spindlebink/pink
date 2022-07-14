@@ -26,4 +26,10 @@ struct RenderState {
     window_to_device: mat4x4<f32>,
 };
 
+struct CanvasState {
+    color: vec4<f32>,
+};
+
+var<push_constant> pk_canvas_state: CanvasState;
+
 @group(0) @binding(0) var<uniform> pk_render_state: RenderState;

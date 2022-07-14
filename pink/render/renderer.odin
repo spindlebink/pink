@@ -6,6 +6,9 @@ import "core:math/linalg"
 import sdl "vendor:sdl2"
 import "wgpu"
 
+MAX_BIND_GROUPS :: 2
+MAX_PUSH_CONSTANT_SIZE :: 64
+
 // A WGPU rendering context, bringing together all WGPU components necessary to
 // draw things to the screen. Context beyond these members (i.e. pipelines) is
 // done on a module-local level.
@@ -242,14 +245,28 @@ renderer_init :: proc(
 		wgpu.DeviceDestroy(ren.device)
 		wgpu.DeviceDrop(ren.device)
 	}
-	
+		
 	wgpu.AdapterRequestDevice(
 		ren.adapter,
 		&wgpu.DeviceDescriptor{
+			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.DeviceExtras{
+				chain = wgpu.ChainedStruct{
+					next = nil,
+					sType = wgpu.SType(wgpu.NativeSType.DeviceExtras),
+				},
+				nativeFeatures = .PUSH_CONSTANTS,
+			},
 			requiredLimits = &wgpu.RequiredLimits{
 				limits = wgpu.Limits{
-					maxBindGroups = 1,
+					maxBindGroups = c.uint32_t(MAX_BIND_GROUPS),
 				},
+				nextInChain = cast(^wgpu.ChainedStruct)&wgpu.RequiredLimitsExtras{
+					chain = wgpu.ChainedStruct{
+						next = nil,
+						sType = wgpu.SType(wgpu.NativeSType.RequiredLimitsExtras),
+					},
+					maxPushConstantSize = c.uint32_t(MAX_PUSH_CONSTANT_SIZE),
+				}
 			},
 			defaultQueue = wgpu.QueueDescriptor{},
 		},

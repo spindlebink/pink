@@ -1,5 +1,6 @@
 package pink_render
 
+import "core:fmt"
 import "core:c"
 import "wgpu"
 
@@ -18,6 +19,7 @@ Pipeline_Descriptor :: struct {
 	fragment_entry_point: string,
 	buffer_layouts: []wgpu.VertexBufferLayout,
 	bind_group_layouts: []wgpu.BindGroupLayout,
+	push_constant_ranges: []wgpu.PushConstantRange,
 }
 
 // Initializes a renderer pipeline using a descriptor.
@@ -32,6 +34,14 @@ pipeline_init :: proc(
 			label = cstring(raw_data(desc.label)),
 			bindGroupLayoutCount = c.uint32_t(len(desc.bind_group_layouts)),
 			bindGroupLayouts = ([^]wgpu.BindGroupLayout)(raw_data(desc.bind_group_layouts)),
+			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.PipelineLayoutExtras{
+				chain = wgpu.ChainedStruct{
+					next = nil,
+					sType = wgpu.SType(wgpu.NativeSType.PipelineLayoutExtras),
+				},
+				pushConstantRangeCount = c.uint32_t(len(desc.push_constant_ranges)),
+				pushConstantRanges = ([^]wgpu.PushConstantRange)(raw_data(desc.push_constant_ranges)),
+			},
 		},
 	)
 	
