@@ -1,6 +1,7 @@
 package pink
 
 import "core:c"
+import "core:fmt"
 import "core:hash"
 import "core:math"
 import stbi "vendor:stb/image"

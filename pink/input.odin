@@ -289,29 +289,28 @@ key_mod_state_from_sdl :: proc() -> Modifier_Keys {
 	return mods
 }
 
-// Currently not working due to unexpected Odin behavior on big bitsets
-// @(private)
-// key_state_from_sdl :: proc() -> Keys {
-// 	keys: Keys
-// 	state := sdl.GetKeyboardState(nil)
-// 	for scancode in sdl.Scancode {
-// 		if state[int(scancode)] != 0 {
-// 			if pk_key, found := sdl_key_lookups[scancode]; found {
-// 				keys += {pk_key}
-// 			}
-// 		}
-// 	}
-// 	return keys
-// }
-
 @(private)
-key_state_from_sdl :: proc(
-	state: ^map[Key]bool,
-) {
-	sdl_state := sdl.GetKeyboardState(nil)
+key_state_from_sdl :: proc() -> Keys {
+	keys: Keys
+	state := sdl.GetKeyboardState(nil)
 	for scancode in sdl.Scancode {
-		if pk_key, found := sdl_key_lookups[scancode]; found {
-			state[pk_key] = sdl_state[int(scancode)] != 0
+		if state[int(scancode)] != 0 {
+			if pk_key, found := sdl_key_lookups[scancode]; found {
+				keys += {pk_key}
+			}
 		}
 	}
+	return keys
 }
+
+// @(private)
+// key_state_from_sdl :: proc(
+// 	state: ^map[Key]bool,
+// ) {
+// 	sdl_state := sdl.GetKeyboardState(nil)
+// 	for scancode in sdl.Scancode {
+// 		if pk_key, found := sdl_key_lookups[scancode]; found {
+// 			state[pk_key] = sdl_state[int(scancode)] != 0
+// 		}
+// 	}
+// }

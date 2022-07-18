@@ -34,7 +34,8 @@ Program :: struct {
 	mouse_pos: [2]f32,
 	mouse_rel_pos: [2]f32,
 	key_mod_state: Modifier_Keys,
-	key_state: map[Key]bool,
+	key_state: Keys,
+	// key_state: map[Key]bool,
 
 	core: Program_Core,
 }
@@ -168,15 +169,15 @@ program_run :: proc(
 	first_frame := true
 	clock.clock_reset(&program.clock)
 
-	// program.keyboard_state = key_state_from_sdl()
-	key_state_from_sdl(&program.key_state)
+	// key_state_from_sdl(&program.key_state)
+	program.key_state = key_state_from_sdl()
 	program.key_mod_state = key_mod_state_from_sdl()
 	
 	for !program.quit_at_frame_end {
 		clock.clock_tick(&program.clock)
 
-		// program.keyboard_state = key_state_from_sdl()
-		key_state_from_sdl(&program.key_state)
+		// key_state_from_sdl(&program.key_state)
+		program.key_state = key_state_from_sdl()
 		program.key_mod_state = key_mod_state_from_sdl()
 		
 		size_changed, minimized, maximized := false, false, false
@@ -302,7 +303,6 @@ program_exit :: proc(
 	if program.hooks.on_exit != nil do program.hooks.on_exit()
 	
 	delete(program.timers)
-	delete(program.key_state)
 	canvas_destroy(&program.canvas)
 	render.renderer_destroy(&program.core.renderer)
 	window_destroy(&program.window)
