@@ -4,7 +4,8 @@ import "core:c"
 import "core:fmt"
 import "core:hash"
 import "core:math"
-import stbi "vendor:stb/image"
+import "core:image/png"
+import lib_image "core:image"
 import "render"
 import "render/wgpu"
 
@@ -19,10 +20,10 @@ Image :: struct {
 
 @(private)
 Image_Core :: struct {
+	handle: ^lib_image.Image,
 	ready: bool,
 	hash: u32,
 	texture: render.Texture,
-	data: [^]u8,
 }
 
 Image_Address_Mode :: render.Texture_Address_Mode
@@ -34,23 +35,17 @@ image_create_from_data :: proc(
 	data: []u8,
 	options := Image_Options{},
 ) -> Image {
-	data := data
-	width, height, channels: i32
-	
-	loaded := stbi.load_from_memory(
-		raw_data(data),
-		i32(len(data) * size_of(u8)),
-		&width, &height, &channels,
-		RGBA_CHANNELS,
-	)
+	img, err := lib_image.load_from_bytes(data, lib_image.Options{.alpha_add_if_missing})
+	fmt.assertf(err == nil, "could not load image")
+	fmt.assertf(img.channels == 4, "unsupported image channel count")
 
 	image := Image{
-		width = uint(width),
-		height = uint(height),
+		width = uint(img.width),
+		height = uint(img.height),
 		options = options,
 		core = Image_Core{
-			hash = hash.murmur32(loaded[0:len(data)]),
-			data = loaded,
+			hash = hash.murmur32(img.pixels.buf[:]),
+			handle = img,
 		},
 	}
 	
@@ -61,7 +56,7 @@ image_create_from_data :: proc(
 image_destroy :: proc(
 	image: ^Image,
 ) {
-	stbi.image_free(image.core.data)
+	lib_image.destroy(image.core.handle)
 	if image.core.ready do render.texture_deinit(&image.core.texture)
 }
 
@@ -118,6 +113,6 @@ image_core_init :: proc(
 	render.texture_queue_copy_full(
 		renderer,
 		&image.core.texture,
-		image.core.data[0:image.width * image.height * image.core.texture.bytes_per_pixel],
+		image.core.handle.pixels.buf[0:image.width * image.height * image.core.texture.bytes_per_pixel],
 	)
 }
