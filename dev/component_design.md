@@ -24,3 +24,21 @@ For a redesign of the API, I'd like to reconsider
 	* We may emulate the way `core:image` does it, and provide a private registration proc that loads up a component when it's imported
 	* We may simply require that the user do things themselves: a runtime loop is a `for true {}` followed by `program_frame_begin()`, `canvas_frame_begin()`, etc. instead of the current massive `program_run` loop
 		* This is in keeping with Pink's slightly lower-level niche
+	* Each system holds its own global state?
+
+## Tools
+
+Brainstorming of tools that might be worth including in Pink. Not all of these will or should be included. Some of them are also better implemented as user-side plugins or systems, or as vendor plugins.
+
+* `app`: window context, input, framerate, lifetime callbacks, necessary in all programs
+	* can/should this be split into `runtime`/`window`/`input`/any other components?
+* `render`: GPU layer used internally -> `app`
+* `canvas`: immediate-mode graphics -> `render`
+* `gfx2d`: retained-mode 2D graphics -> `render`
+* `gfx3d`: retained-mode 3D graphics -> `render`
+* `text`: text rasterization and layout -> `render`
+* `imui`: RayGUI-style immediate-mode UI -> `canvas`
+* `asset`: PhysFS-based asset bundling, may not need to depend on anything
+* `audio`: sound -> `app`, or may depend on a `render`-like audio layer--need to figure this out when we get around to audio
+* `timer`: timers -> `app`
+* `anim`: animations and tweening -> `app`
