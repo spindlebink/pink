@@ -1,6 +1,5 @@
 package pink
 
-import "core:fmt"
 import "core:c"
 import "core:math/linalg"
 import "render"

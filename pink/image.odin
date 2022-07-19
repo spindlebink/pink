@@ -1,6 +1,5 @@
 package pink
 
-import "core:c"
 import "core:fmt"
 import "core:hash"
 import "core:math"
@@ -8,9 +7,6 @@ import "core:image/png"
 import lib_image "core:image"
 import "render"
 import "render/wgpu"
-
-@(private)
-RGBA_CHANNELS :: 4
 
 Image :: struct {
 	width, height: uint,

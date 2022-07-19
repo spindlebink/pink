@@ -1,6 +1,5 @@
 package pink
 
-import "core:fmt"
 import sdl "vendor:sdl2"
 
 Modifier_Key :: enum {

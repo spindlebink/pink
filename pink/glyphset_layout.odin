@@ -1,7 +1,6 @@
 package pink
 
 import "core:strings"
-import "core:fmt"
 import "fontdue"
 
 Glyphset_Layout :: struct {

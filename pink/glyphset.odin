@@ -1,7 +1,6 @@
 package pink
 
 import "core:c"
-import "core:fmt"
 import "core:hash"
 import "core:sort"
 import "rect_atlas"
@@ -116,7 +115,6 @@ glyphset_bake :: proc(
 		// Cycle through all rasterized glyphs
 		for glyph, i in glyphset.core.glyphs {
 			if _, baked := glyphset.core.baked_glyphs[glyph.glyph]; baked {
-				fmt.println(glyph.glyph)
 				panic("Attempt to bake a glyph twice")
 			}
 			

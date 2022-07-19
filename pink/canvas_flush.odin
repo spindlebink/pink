@@ -1,7 +1,6 @@
 package pink
 
 import "core:c"
-import "core:fmt"
 import "render"
 import "render/wgpu"
 
