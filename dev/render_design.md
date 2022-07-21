@@ -25,3 +25,44 @@ Notes:
 	* `sokol_gp` may also use this for custom shaders? Need to read closer
 
 The current renderer design targets the canvas system rather than vice-versa. `Painter` abstractions only exist in the context of a canvas: other drawing systems may use different methods. This means that a `Painter` type, if still deemed necessary, should be defined within the canvas system and not on the renderer side, the way `sokol_gp` does it with what it calls pipelines.
+
+## Design
+
+Renderer runs on global state. User-side does no handling of device, adapter, swapchain, etc. Design should be general enough to accomodate multiple targets--WGPU for desktop but also WebGL for our initial WASM target, since WebGPU still isn't standardized and hence isn't available in most browsers.
+
+Types:
+
+* `Pipeline`: a graphics pipeline, representing a rendering path based on zero or more vertex buffers, zero or more uniform buffers, and one paired vertex and fragment shader
+* `Shader`: a shader comprising zero or one vertex shaders and zero or one fragment shaders used in the creation of a `Pipeline`
+* `Buffer`: a buffer holding vertex or instance data, can be resized, written to, etc., and contains information for its own attributes
+	* There is no writing of arbitrary `rawptr` data to a buffer: buffers handle their data via arrays which can be cleared, appended to, etc., using a transparent `data` `[]T`
+	* Copying data from the CPU-side buffer to the GPU happens with a `buf_copy`
+	* Index buffers are just `Buffer(uint)`, when/if we want to add them eventually--usage for a buffer can be specified elsewhere, maybe during pipeline creation?
+* `Uniform`: a fixed-size buffer holding a uniform struct, writeable once per render frame, generally at frame start
+* `Texture`: width/height/channels/data. Can be used as the render target of a pass or bound as input to a pipeline.
+	* Just as with a buffer, we have a `tex_copy` call to queue a texture copy, and data modification happens using direct access to a `data` array
+* `Pass`: a render pass
+
+Canvas system pseudocode:
+```odin
+canvas_frame_begin :: proc() {
+	pkr.pass_begin(&canvas_state.pass)
+}
+
+canvas_frame_flush :: proc() {
+	for command in canvas_commands {
+		switch in command {
+		case Cmd_Draw_Rect:
+			append(&rect_instance_buf.data, command.data_to_append)
+		}
+	}
+}
+
+canvas_frame_end :: proc() {
+	for _, i in filled_buffers {
+		pkr.buf_copy(&filled_buffers[i])
+	}
+
+	pkr.pass_end(&canvas_state.pass)
+}
+```
