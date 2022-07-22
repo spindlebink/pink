@@ -100,8 +100,8 @@ _atlas_split :: proc(
 	free_w, free_h := space.w - rect.w, space.h - rect.h
 
 	// Rect won't fit into space/rect fits perfectly into space
-	if free_w < 0 || free_h < 0 do return .Too_Small
-	if free_w == 0 && free_h == 0 do return .Just_Right
+	if free_w < 0 || free_h < 0 { return .Too_Small }
+	if free_w == 0 && free_h == 0 { return .Just_Right }
 	
 	// Rect fits perfectly in one dimension = create only one split
 	if free_w > 0 && free_h == 0 {

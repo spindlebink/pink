@@ -1,4 +1,4 @@
-package clock
+package pk_app
 
 import "core:math"
 import "core:time"

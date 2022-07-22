@@ -1,142 +1,113 @@
-package pink_render
+package pk_render
 
 import "core:c"
-import "core:hash"
 import "wgpu"
 
-// Represents a basic GPU texture type.
 Texture :: struct {
-	width: uint,
-	height: uint,
-	bytes_per_pixel: uint,
+	width, height: uint,
 	options: Texture_Options,
-	texture: wgpu.Texture,
-	view: wgpu.TextureView,
-	sampler: wgpu.Sampler,
-	bind_group: wgpu.BindGroup,
+
+	_bytes_per_pixel: uint,
+	_wgpu_texture: wgpu.Texture,
+	_wgpu_view: wgpu.TextureView,
+	_wgpu_sampler: wgpu.Sampler,
+	_wgpu_bind_group: wgpu.BindGroup,
 }
 
-// Address mode of a texture sampler. Applied to all dimensions of the sampler.
+Texture_Options :: struct {
+	format: Texture_Format,
+	usage: Texture_Usage,
+	address_mode: Texture_Address_Mode,
+	min_filter: Texture_Filter,
+	mag_filter: Texture_Filter,
+}
+
+Texture_Usage :: enum {
+	Binding,
+	Render_Target,
+}
+
+Texture_Format :: enum {
+	RGBA,
+	Gray,
+}
+
 Texture_Address_Mode :: enum {
 	Clamp,
 	Repeat,
 	Mirror_Repeat,
 }
 
-// Filter mode for a texture sampler.
 Texture_Filter :: enum {
 	Linear,
 	Nearest,
 }
 
-// Simplified format choices for a texture. Pink uses exclusively types in this
-// enum for texture formats.
-Texture_Format :: enum {
-	RGBA,
-	Grayscale,
-}
-
-// Texture initialization options.
-Texture_Options :: struct {
-	format: Texture_Format,
-	address_mode: Texture_Address_Mode,
-	min_filter: Texture_Filter,
-	mag_filter: Texture_Filter,
-}
-
-// Initializes a texture with a given width, height, and options.
-texture_init :: proc(
-	renderer: ^Renderer,
-	texture: ^Texture,
-	width: uint,
-	height: uint,
-	options := Texture_Options{},
-) {
-	texture.width, texture.height = width, height
-	texture.options = options
-	texture.bytes_per_pixel = 4 if options.format == .RGBA else 1
-
-	texture.texture = wgpu.DeviceCreateTexture(
-		renderer.device,
+texture_init :: proc(texture: ^Texture) {
+	texture._bytes_per_pixel = texture.options.format == .RGBA ? 4 : 1
+	texture._wgpu_texture = wgpu.DeviceCreateTexture(
+		_core.device,
 		&wgpu.TextureDescriptor{
 			size = wgpu.Extent3D{
-				width = c.uint32_t(width),
-				height = c.uint32_t(height),
+				width = c.uint32_t(texture.width),
+				height = c.uint32_t(texture.height),
 				depthOrArrayLayers = 1,
 			},
 			mipLevelCount = 1,
 			sampleCount = 1,
 			dimension = .D2,
-			format =
-				.RGBA8UnormSrgb if options.format == .RGBA else
-				.R8Unorm,
-			usage = {.TextureBinding, .CopyDst},
+			format = texture.options.format == .RGBA ? .RGBA8UnormSrgb : .R8Unorm,
+			usage = texture.options.usage == .Binding ? {.TextureBinding, .CopyDst} : {.RenderAttachment},
 		},
 	)
 	
-	texture.view = wgpu.TextureCreateView(
-		texture.texture,
+	texture._wgpu_view = wgpu.TextureCreateView(
+		texture._wgpu_texture,
 		&wgpu.TextureViewDescriptor{},
 	)
 
-	address_mode: wgpu.AddressMode =
-		.ClampToEdge if options.address_mode == .Clamp else
-		.Repeat if options.address_mode == .Repeat else
-		.MirrorRepeat
+	if texture.options.usage == .Binding {
+		addr_mode: wgpu.AddressMode =
+			.ClampToEdge if texture.options.address_mode == .Clamp else
+			.Repeat if texture.options.address_mode == .Repeat else
+			.MirrorRepeat	
 
-	texture.sampler = wgpu.DeviceCreateSampler(
-		renderer.device,
-		&wgpu.SamplerDescriptor{
-			addressModeU = address_mode,
-			addressModeV = address_mode,
-			addressModeW = address_mode,
-			magFilter =
-				.Linear if options.mag_filter == .Linear else
-				.Nearest,
-			minFilter =
-				.Linear if options.min_filter == .Linear else
-				.Nearest,
-			mipmapFilter = .Nearest,
-		},
-	)
-
-	texture.bind_group = renderer_create_texture_bind_group(
-		renderer,
-		texture.view,
-		texture.sampler,
-	)
+		texture._wgpu_sampler = wgpu.DeviceCreateSampler(
+			_core.device,
+			&wgpu.SamplerDescriptor{
+				addressModeU = addr_mode,
+				addressModeV = addr_mode,
+				addressModeW = addr_mode,
+				magFilter = texture.options.mag_filter == .Linear ? .Linear : .Nearest,
+				minFilter = texture.options.min_filter == .Linear ? .Linear : .Nearest,
+				mipmapFilter = .Linear,
+			},
+		)
+	}
+	
+	// TODO: create bind group--identify basic texture bind group layout for renderer
 }
 
-// Deinitializes a texture. The texture can be reinitialized after a call to
-// this procedure, but all currently-associated memory is cleared.
-texture_deinit :: proc(
-	texture: ^Texture,
-) {
-	wgpu.BindGroupDrop(texture.bind_group)
-	wgpu.SamplerDrop(texture.sampler)
-	wgpu.TextureViewDrop(texture.view)
-	wgpu.TextureDestroy(texture.texture)
-	wgpu.TextureDrop(texture.texture)
+texture_destroy :: proc(texture: Texture) {
+	wgpu.BindGroupDrop(texture._wgpu_bind_group)
+	wgpu.SamplerDrop(texture._wgpu_sampler)
+	wgpu.TextureViewDrop(texture._wgpu_view)
+	wgpu.TextureDestroy(texture._wgpu_texture)
+	wgpu.TextureDrop(texture._wgpu_texture)
 }
 
-// Queues a write operation to copy data to a texture.
-texture_queue_copy :: proc(
-	renderer: ^Renderer,
-	texture: ^Texture,
-	data: []u8,
-	x, y, w, h: uint,
-) {
-	bytes_per_row := texture.bytes_per_pixel * w
+texture_write_rect :: proc(texture: ^Texture, data: []byte, x, y, w, h: uint) {
+	bytes_per_row := texture._bytes_per_pixel * w
 	wgpu.QueueWriteTexture(
-		renderer.queue,
+		_core.queue,
 		&wgpu.ImageCopyTexture{
-			texture = texture.texture,
+			texture = texture._wgpu_texture,
 			mipLevel = 0,
+			aspect = .All,
 			origin = wgpu.Origin3D{
 				x = c.uint32_t(x),
 				y = c.uint32_t(y),
 			},
-			aspect = .All,
 		},
 		raw_data(data),
 		c.size_t(len(data)),
@@ -153,16 +124,11 @@ texture_queue_copy :: proc(
 	)
 }
 
-// Queues a write operation to copy data of the texture's own size to a texture.
-texture_queue_copy_full :: proc(
-	renderer: ^Renderer,
-	texture: ^Texture,
-	data: []u8,
-) {
-	texture_queue_copy(
-		renderer,
-		texture,
-		data,
-		0, 0, texture.width, texture.height,
-	)
+texture_write_full :: proc(texture: ^Texture, data: []byte) {
+	texture_write_rect(texture, data, 0, 0, texture.width, texture.height)
+}
+
+texture_write :: proc{
+	texture_write_rect,
+	texture_write_full,
 }

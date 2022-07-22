@@ -1,67 +1,77 @@
-package pink_render
+package pk_render
 
 import "core:fmt"
 import "core:c"
+import "core:intrinsics"
+import "core:slice"
 import "wgpu"
 
-// Structure to hold a pipeline layout and render pipeline as a bundle.
+VERTEX_SHADER_ENTRY :: "vertex"
+FRAGMENT_SHADER_ENTRY :: "fragment"
+
 Pipeline :: struct {
-	layout: wgpu.PipelineLayout,
-	handle: wgpu.RenderPipeline,
+	_wgpu_layout: wgpu.PipelineLayout,
+	_wgpu_handle: wgpu.RenderPipeline,
 }
 
-// Simplified pipeline descriptor containing only the information we actually
-// use for Pink's renderer pipelines.
-Pipeline_Descriptor :: struct {
-	label: string,
-	shader: wgpu.ShaderModule,
-	vertex_entry_point: string,
-	fragment_entry_point: string,
-	buffer_layouts: []wgpu.VertexBufferLayout,
-	bind_group_layouts: []wgpu.BindGroupLayout,
-	push_constant_ranges: []wgpu.PushConstantRange,
-}
-
-// Initializes a renderer pipeline using a descriptor.
 pipeline_init :: proc(
 	pipeline: ^Pipeline,
-	renderer: ^Renderer,
-	desc: Pipeline_Descriptor,
+	shader: Shader,
+	buffer_layouts: []Buffer_Layout,
 ) {
-	pipeline.layout = wgpu.DeviceCreatePipelineLayout(
-		renderer.device,
+	layouts := make([]wgpu.VertexBufferLayout, len(buffer_layouts))
+	attributes := make([][]wgpu.VertexAttribute, len(buffer_layouts))
+	defer delete(layouts)
+	defer delete(attributes)
+	defer for attr, i in attributes { delete(attributes[i]) }
+	
+	shader_loc := 0
+	for layout, i in buffer_layouts {
+		attrs := make([]wgpu.VertexAttribute, len(layout.attributes))
+		attributes[i] = attrs
+		
+		for attr, i in layout.attributes {
+			attrs[i] = wgpu.VertexAttribute{
+				shaderLocation = c.uint32_t(shader_loc + i),
+				format = wgpu_format_from_attr(attr),
+				offset = c.uint64_t(attr.offset),
+			}
+		}
+		
+		layouts[i] = wgpu.VertexBufferLayout{
+			arrayStride = c.uint64_t(layout.stride),
+			stepMode = layout.usage == .Instance ? .Instance : .Vertex,
+			attributeCount = c.uint32_t(len(layout.attributes)),
+			attributes = raw_data(attrs),
+		}
+
+		shader_loc += len(layout.attributes)
+	}
+
+	pipeline._wgpu_layout = wgpu.DeviceCreatePipelineLayout(
+		_core.device,
 		&wgpu.PipelineLayoutDescriptor{
-			label = cstring(raw_data(desc.label)),
-			bindGroupLayoutCount = c.uint32_t(len(desc.bind_group_layouts)),
-			bindGroupLayouts = ([^]wgpu.BindGroupLayout)(raw_data(desc.bind_group_layouts)),
-			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.PipelineLayoutExtras{
-				chain = wgpu.ChainedStruct{
-					next = nil,
-					sType = wgpu.SType(wgpu.NativeSType.PipelineLayoutExtras),
-				},
-				pushConstantRangeCount = c.uint32_t(len(desc.push_constant_ranges)),
-				pushConstantRanges = ([^]wgpu.PushConstantRange)(raw_data(desc.push_constant_ranges)),
-			},
-		},
+			// TODO: bind group layouts in here, specified similar to buffer layouts
+		}
 	)
 	
-	pipeline.handle = wgpu.DeviceCreateRenderPipeline(
-		renderer.device,
+	pipeline._wgpu_handle = wgpu.DeviceCreateRenderPipeline(
+		_core.device,
 		&wgpu.RenderPipelineDescriptor{
-			label = cstring(raw_data(desc.label)),
-			layout = pipeline.layout,
+			layout = pipeline._wgpu_layout,
 			vertex = wgpu.VertexState{
-				module = desc.shader,
-				entryPoint = cstring(raw_data(desc.vertex_entry_point)),
-				bufferCount = c.uint32_t(len(desc.buffer_layouts)),
-				buffers = ([^]wgpu.VertexBufferLayout)(raw_data(desc.buffer_layouts)),
+				module = shader._wgpu_handle,
+				entryPoint = cstring(VERTEX_SHADER_ENTRY),
+				bufferCount = c.uint32_t(len(layouts)),
+				buffers = raw_data(layouts),
 			},
 			fragment = &wgpu.FragmentState{
-				module = desc.shader,
-				entryPoint = cstring(raw_data(desc.fragment_entry_point)),
+				module = shader._wgpu_handle,
+				entryPoint = cstring(FRAGMENT_SHADER_ENTRY),
 				targetCount = 1,
 				targets = &wgpu.ColorTargetState{
-					format = renderer.render_texture_format,
+					format = _core.ren_tex_format,
+					writeMask = wgpu.ColorWriteMaskFlagsAll,
 					blend = &wgpu.BlendState{
 						color = wgpu.BlendComponent{
 							srcFactor = .SrcAlpha,
@@ -74,7 +84,6 @@ pipeline_init :: proc(
 							operation = .Add,
 						},
 					},
-					writeMask = wgpu.ColorWriteMaskFlagsAll,
 				},
 			},
 			primitive = wgpu.PrimitiveState{
@@ -91,10 +100,7 @@ pipeline_init :: proc(
 	)
 }
 
-// Deinitializes a renderer pipeline.
-pipeline_deinit :: proc(
-	pipeline: ^Pipeline,
-) {
-	wgpu.RenderPipelineDrop(pipeline.handle)
-	wgpu.PipelineLayoutDrop(pipeline.layout)
+pipeline_destroy :: proc(pipeline: Pipeline) {
+	if pipeline._wgpu_layout != nil { wgpu.PipelineLayoutDrop(pipeline._wgpu_layout) }
+	if pipeline._wgpu_handle != nil { wgpu.RenderPipelineDrop(pipeline._wgpu_handle) }
 }

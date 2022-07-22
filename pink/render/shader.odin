@@ -1,36 +1,26 @@
-package pink_render
+package pk_render
 
-import "core:mem"
+import "core:fmt"
 import "wgpu"
 
-shader_module_create :: proc(
-	renderer: ^Renderer,
-	header: []u8,
-	body: []u8,
-) -> wgpu.ShaderModule {
-	source := make([]u8, len(header) + len(body)); defer delete(source)
-	mem.copy(
-		raw_data(source[:len(header) * size_of(u8)]),
-		raw_data(header),
-		len(header) * size_of(u8),
-	)
-	mem.copy(
-		raw_data(source[len(header) * size_of(u8):]),
-		raw_data(body),
-		len(body) * size_of(u8),
-	)
+Shader :: struct {
+	_wgpu_handle: wgpu.ShaderModule,
+}
 
-	module := wgpu.DeviceCreateShaderModule(
-		renderer.device,
+shader_init_wgsl :: proc(shader: ^Shader, source: []byte) {
+	shader._wgpu_handle = wgpu.DeviceCreateShaderModule(
+		_core.device,
 		&wgpu.ShaderModuleDescriptor{
-			nextInChain = cast(^wgpu.ChainedStruct)&wgpu.ShaderModuleWGSLDescriptor{
-				chain = wgpu.ChainedStruct{
-					sType = .ShaderModuleWGSLDescriptor,
-				},
+			nextInChain = cast(^wgpu.ChainedStruct) &wgpu.ShaderModuleWGSLDescriptor{
+				chain = wgpu.ChainedStruct{sType = .ShaderModuleWGSLDescriptor},
 				code = cstring(raw_data(source)),
 			},
 		},
 	)
-	
-	return module
+}
+
+shader_destroy :: proc(shader: Shader) {
+	if shader._wgpu_handle != nil {
+		wgpu.ShaderModuleDrop(shader._wgpu_handle)
+	}
 }

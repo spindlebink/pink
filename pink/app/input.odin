@@ -1,8 +1,14 @@
-package pink
+package pk_app
 
 import sdl "vendor:sdl2"
 
-Modifier_Key :: enum {
+Mouse_Button :: enum {
+	Left,
+	Right,
+	Middle,
+}
+
+Key_Mod :: enum {
 	L_Shift,
 	R_Shift,
 	L_Ctrl,
@@ -19,7 +25,7 @@ Modifier_Key :: enum {
 	Alt,
 	Super,
 }
-Modifier_Keys :: bit_set[Modifier_Key]
+Key_Mods :: bit_set[Key_Mod]
 
 Key :: enum {
 	Escape,
@@ -242,7 +248,7 @@ sdl_key_lookups := map[sdl.Scancode]Key{
 }
 
 @(private)
-sdl_mod_key_lookups := map[sdl.KeymodFlag]Modifier_Key{
+sdl_mod_key_lookups := map[sdl.KeymodFlag]Key_Mod{
 	.LSHIFT = .L_Shift,
 	.RSHIFT = .R_Shift,
 	.LCTRL = .L_Ctrl,
@@ -268,8 +274,8 @@ mouse_button_from_sdl :: proc(button: u8) -> Mouse_Button {
 }
 
 @(private)
-key_mod_state_from_sdl :: proc() -> Modifier_Keys {
-	mods: Modifier_Keys
+key_mod_state_from_sdl :: proc() -> Key_Mods {
+	mods: Key_Mods
 	sdl_mods := sdl.GetModState()
 	
 	for key_mod in sdl.KeymodFlag {
@@ -280,10 +286,10 @@ key_mod_state_from_sdl :: proc() -> Modifier_Keys {
 		}
 	}
 	
-	if .LSHIFT in sdl_mods || .RSHIFT in sdl_mods do mods += {.Shift}
-	if .LALT in sdl_mods || .RALT in sdl_mods do mods += {.Alt}
-	if .LCTRL in sdl_mods || .RCTRL in sdl_mods do mods += {.Ctrl}
-	if .LGUI in sdl_mods || .RGUI in sdl_mods do mods += {.Super}
+	if .LSHIFT in sdl_mods || .RSHIFT in sdl_mods { mods += {.Shift} }
+	if .LALT in sdl_mods || .RALT in sdl_mods { mods += {.Alt} }
+	if .LCTRL in sdl_mods || .RCTRL in sdl_mods { mods += {.Ctrl} }
+	if .LGUI in sdl_mods || .RGUI in sdl_mods { mods += {.Super} }
 	
 	return mods
 }
@@ -301,15 +307,3 @@ key_state_from_sdl :: proc() -> Keys {
 	}
 	return keys
 }
-
-// @(private)
-// key_state_from_sdl :: proc(
-// 	state: ^map[Key]bool,
-// ) {
-// 	sdl_state := sdl.GetKeyboardState(nil)
-// 	for scancode in sdl.Scancode {
-// 		if pk_key, found := sdl_key_lookups[scancode]; found {
-// 			state[pk_key] = sdl_state[int(scancode)] != 0
-// 		}
-// 	}
-// }
