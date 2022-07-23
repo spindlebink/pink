@@ -23,7 +23,7 @@ It's still early, but progress happens quickly. Pink is designed for:
 
 ## Status
 
-Pink currently supports:
+**We're in the middle of an API redesign and reimplementation, so functionality has regressed.** The high-water mark for what's been supported incorporates:
 
 * A window context and runtime callbacks
 * An immediate-mode canvas renderer

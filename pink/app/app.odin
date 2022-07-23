@@ -131,6 +131,7 @@ frame_begin :: proc() {
 	}
 
 	// Pump events
+
 	size_changed, mind, maxd := false, false, false
 	event: sdl.Event
 	for sdl.PollEvent(&event) {
@@ -238,4 +239,6 @@ exit :: proc() {
 	if _core.hooks.ren_destroy != nil { _core.hooks.ren_destroy() }
 	window_destroy(&window)
 	sdl.Quit()
+	delete(sdl_key_lookups)
+	delete(sdl_mod_key_lookups)
 }

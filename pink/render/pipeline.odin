@@ -18,12 +18,17 @@ pipeline_init :: proc(
 	pipeline: ^Pipeline,
 	shader: Shader,
 	buffer_layouts: []Buffer_Layout,
+	bindings: []Binding = {},
 ) {
 	layouts := make([]wgpu.VertexBufferLayout, len(buffer_layouts))
 	attributes := make([][]wgpu.VertexAttribute, len(buffer_layouts))
+	bind_layouts := make([]wgpu.BindGroupLayout, len(bindings))
 	defer delete(layouts)
 	defer delete(attributes)
 	defer for attr, i in attributes { delete(attributes[i]) }
+	defer delete(bind_layouts)
+	
+	// Create vertex buffer & bind group layouts
 	
 	shader_loc := 0
 	for layout, i in buffer_layouts {
@@ -47,11 +52,18 @@ pipeline_init :: proc(
 
 		shader_loc += len(layout.attributes)
 	}
+	
+	for bind_group, i in bindings {
+		bind_layouts[i] = bind_group.type == .Texture_Sampler ? texture_bind_group_layout : uniform_bind_group_layout
+	}
+
+	// Create the pipeline
 
 	pipeline._wgpu_layout = wgpu.DeviceCreatePipelineLayout(
 		_core.device,
 		&wgpu.PipelineLayoutDescriptor{
-			// TODO: bind group layouts in here, specified similar to buffer layouts
+			bindGroupLayoutCount = c.uint32_t(len(bind_layouts)),
+			bindGroupLayouts = raw_data(bind_layouts),
 		}
 	)
 	

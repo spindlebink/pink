@@ -8,25 +8,30 @@ BUFFER_INITIAL_SIZE :: 128
 // Buffer holding vertex or instance data.
 Buffer :: struct {
 	size: uint,
+	usage: Buffer_Usage,
 	_wgpu_handle: wgpu.Buffer,
 }
 
+Buffer_Usage :: enum {
+	Vertex,
+	Instance,
+	Uniform,
+	Index,
+}
+
 Buffer_Layout :: struct {
-	usage: enum {
-		Vertex,
-		Instance,
-	},
+	usage: Buffer_Usage,
 	stride: uint,
 	attributes: []Attribute,
 }
 
-buffer_init :: proc(buffer: ^Buffer) {
-	buffer.size = BUFFER_INITIAL_SIZE
+buffer_init :: proc(buffer: ^Buffer, size: uint = BUFFER_INITIAL_SIZE) {
+	buffer.size = size
 	buffer._wgpu_handle = wgpu.DeviceCreateBuffer(
 		_core.device,
 		&wgpu.BufferDescriptor{
-			usage = {.Vertex, .CopyDst},
-			size = c.uint64_t(BUFFER_INITIAL_SIZE)
+			usage = buffer.usage == .Vertex || buffer.usage == .Instance ? {.Vertex, .CopyDst} : {.Uniform, .CopyDst}, // TODO: index buffers
+			size = c.uint64_t(size)
 		}
 	)
 }

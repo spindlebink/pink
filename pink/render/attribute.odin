@@ -3,6 +3,13 @@ package pk_render
 import "core:c"
 import "wgpu"
 
+Binding :: struct {
+	type: enum {
+		Texture_Sampler,
+		Uniform,
+	},
+}
+
 Attribute :: struct {
 	type: typeid,
 	offset: uintptr,

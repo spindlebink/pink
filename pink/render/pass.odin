@@ -7,6 +7,7 @@ PASS_MAX_BUFFERS :: 8
 
 Pass :: struct {
 	_buffers: [PASS_MAX_BUFFERS]wgpu.Buffer,
+	_bind_groups: [MAX_BIND_GROUPS]wgpu.BindGroup,
 	_active_pipeline: wgpu.RenderPipeline,
 	_wgpu_handle: wgpu.RenderPassEncoder,
 }
@@ -58,6 +59,22 @@ pass_set_buffers :: #force_inline proc(pass: ^Pass, buffers: ..Buffer) {
 	for buffer, i in buffers {
 		pass_set_buffer(pass, uint(i), buffer)
 	}
+}
+
+pass_set_bind_uniform :: proc(pass: ^Pass, index: uint, uniform: Buffer) {
+	assert(uniform.usage == .Uniform)
+	unimplemented()
+}
+
+pass_set_bind_texture :: proc(pass: ^Pass, index: uint, texture: Texture) {
+	// TODO: check against already bound, WGPU doesn't seem to do it internally
+	wgpu.RenderPassEncoderSetBindGroup(
+		pass._wgpu_handle,
+		c.uint32_t(index),
+		texture._wgpu_bind_group,
+		0,
+		nil,
+	)
 }
 
 pass_draw :: proc(

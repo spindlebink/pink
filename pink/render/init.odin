@@ -9,11 +9,15 @@ import "../app"
 @(init, private)
 _module_init :: proc() {
 	app._core.hooks.ren_init = init
+	app._core.hooks.ren_destroy = destroy
 	app._core.hooks.ren_frame_begin = frame_begin
 	app._core.hooks.ren_frame_end = frame_end
 }
 
 MAX_BIND_GROUPS :: #config(PK_RENDER_MAX_BIND_GROUPS, 4)
+
+texture_bind_group_layout: wgpu.BindGroupLayout
+uniform_bind_group_layout: wgpu.BindGroupLayout
 
 // Core state. Shouldn't generally be accessed user-side.
 _core: Core
@@ -79,7 +83,7 @@ on_uncaptured_error :: proc(
 	msg: cstring,
 	userdata: rawptr,
 ) {
-	fmt.println(msg)
+	fmt.eprintln(msg)
 	panic("uncaptured GPU error")
 }
 
@@ -89,7 +93,9 @@ on_device_lost :: proc(
 	msg: cstring,
 	userdata: rawptr,
 ) {
-	panic(string(msg))
+	if !_core.exiting {
+		panic(string(msg))
+	}
 }
 
 /*
@@ -186,6 +192,72 @@ init :: proc() {
 		_core.ren_tex_format = .RGBA8UnormSrgb
 	} else {
 		panic("unknown GPU error: noncompliant with WebGPU spec")
+	}
+
+	// Create texture bind group layout
+	{
+		group_entries := []wgpu.BindGroupLayoutEntry{
+			wgpu.BindGroupLayoutEntry{
+				binding = 0,
+				visibility = {.Fragment},
+				texture = wgpu.TextureBindingLayout{
+					multisampled = false,
+					viewDimension = .D2,
+					sampleType = .Float,
+				},
+			},
+			wgpu.BindGroupLayoutEntry{
+				binding = 1,
+				visibility = {.Fragment},
+				sampler = wgpu.SamplerBindingLayout{
+					type = .Filtering,
+				},
+			},
+		}
+
+		texture_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+			_core.device,
+			&wgpu.BindGroupLayoutDescriptor{
+				entryCount = c.uint32_t(len(group_entries)),
+				entries = raw_data(group_entries),
+			},
+		)
+	}
+	
+	// Create uniform bind group layout
+	{
+		group_entries := []wgpu.BindGroupLayoutEntry{
+			wgpu.BindGroupLayoutEntry{
+				binding = 0,
+				visibility = {.Vertex, .Fragment},
+				buffer = wgpu.BufferBindingLayout{type = .Uniform},
+			},
+		}
+		
+		uniform_bind_group_layout = wgpu.DeviceCreateBindGroupLayout(
+			_core.device,
+			&wgpu.BindGroupLayoutDescriptor{
+				entryCount = c.uint32_t(len(group_entries)),
+				entries = raw_data(group_entries),
+			},
+		)
+	}
+
+	_core.fresh = true
+}
+
+/*
+ * Destroy
+ */
+
+destroy :: proc() {
+	_core.exiting = true
+	if texture_bind_group_layout != nil {
+		wgpu.BindGroupLayoutDrop(texture_bind_group_layout)
+	}
+	if _core.device != nil {
+		wgpu.DeviceDestroy(_core.device)
+		wgpu.DeviceDrop(_core.device)
 	}
 }
 

@@ -83,9 +83,21 @@ texture_init :: proc(texture: ^Texture) {
 				mipmapFilter = .Linear,
 			},
 		)
+		
+		entries := []wgpu.BindGroupEntry{
+			{binding = 0, textureView = texture._wgpu_view},
+			{binding = 1, sampler = texture._wgpu_sampler},
+		}
+		
+		texture._wgpu_bind_group = wgpu.DeviceCreateBindGroup(
+			_core.device,
+			&wgpu.BindGroupDescriptor{
+				layout = texture_bind_group_layout,
+				entryCount = c.uint32_t(len(entries)),
+				entries = raw_data(entries),
+			}
+		)
 	}
-	
-	// TODO: create bind group--identify basic texture bind group layout for renderer
 }
 
 texture_destroy :: proc(texture: Texture) {
