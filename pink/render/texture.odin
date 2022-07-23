@@ -43,8 +43,8 @@ Texture_Filter :: enum {
 	Nearest,
 }
 
-texture_init :: proc(texture: ^Texture) {
-	texture._bytes_per_pixel = texture.options.format == .RGBA ? 4 : 1
+texture_init :: proc(texture: ^Texture, options := Texture_Options{}) {
+	texture._bytes_per_pixel = options.format == .RGBA ? 4 : 1
 	texture._wgpu_texture = wgpu.DeviceCreateTexture(
 		_core.device,
 		&wgpu.TextureDescriptor{
@@ -56,8 +56,8 @@ texture_init :: proc(texture: ^Texture) {
 			mipLevelCount = 1,
 			sampleCount = 1,
 			dimension = .D2,
-			format = texture.options.format == .RGBA ? .RGBA8UnormSrgb : .R8Unorm,
-			usage = texture.options.usage == .Binding ? {.TextureBinding, .CopyDst} : {.RenderAttachment},
+			format = options.format == .RGBA ? .RGBA8UnormSrgb : .R8Unorm,
+			usage = options.usage == .Binding ? {.TextureBinding, .CopyDst} : {.RenderAttachment},
 		},
 	)
 	
@@ -66,10 +66,10 @@ texture_init :: proc(texture: ^Texture) {
 		&wgpu.TextureViewDescriptor{},
 	)
 
-	if texture.options.usage == .Binding {
+	if options.usage == .Binding {
 		addr_mode: wgpu.AddressMode =
-			.ClampToEdge if texture.options.address_mode == .Clamp else
-			.Repeat if texture.options.address_mode == .Repeat else
+			.ClampToEdge if options.address_mode == .Clamp else
+			.Repeat if options.address_mode == .Repeat else
 			.MirrorRepeat	
 
 		texture._wgpu_sampler = wgpu.DeviceCreateSampler(
@@ -78,8 +78,8 @@ texture_init :: proc(texture: ^Texture) {
 				addressModeU = addr_mode,
 				addressModeV = addr_mode,
 				addressModeW = addr_mode,
-				magFilter = texture.options.mag_filter == .Linear ? .Linear : .Nearest,
-				minFilter = texture.options.min_filter == .Linear ? .Linear : .Nearest,
+				magFilter = options.mag_filter == .Linear ? .Linear : .Nearest,
+				minFilter = options.min_filter == .Linear ? .Linear : .Nearest,
 				mipmapFilter = .Linear,
 			},
 		)

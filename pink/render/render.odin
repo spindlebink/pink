@@ -39,7 +39,7 @@ Core :: struct {
 	fresh: bool,
 	exiting: bool,
 	vsync: bool,
-	frame_started: bool,
+	frame_began: bool,
 }
 
 /*
@@ -266,7 +266,7 @@ destroy :: proc() {
  */
 
 frame_begin :: proc() {
-	if _core.frame_started { return }
+	if _core.frame_began { return }
 
 	if _core.swap_chain_expired || _core.width != app.window.width || _core.height != app.window.height {
 		_core.width = app.window.width
@@ -283,11 +283,11 @@ frame_begin :: proc() {
 		_core.device,
 		&wgpu.CommandEncoderDescriptor{},
 	)
-	_core.frame_started = true
+	_core.frame_began = true
 }
 
 frame_end :: proc() {
-	if !_core.frame_started { return }
+	if !_core.frame_began { return }
 	_core.fresh = false
 	
 	commands := wgpu.CommandEncoderFinish(
@@ -297,7 +297,7 @@ frame_end :: proc() {
 	wgpu.QueueSubmit(_core.queue, 1, &commands)
 	wgpu.SwapChainPresent(_core.swap_chain)
 	wgpu.TextureViewDrop(_core.swap_tex_view)
-	_core.frame_started = false
+	_core.frame_began = false
 }
 
 /*

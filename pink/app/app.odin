@@ -1,5 +1,6 @@
 package pk_app
 
+import "core:fmt"
 import "core:strings"
 import "core:time"
 import sdl "vendor:sdl2"
@@ -72,6 +73,8 @@ Core_Hooks :: struct {
 	ren_destroy: proc(),
 	ren_frame_begin: proc(),
 	ren_frame_end: proc(),
+	cnv_init: proc(),
+	cnv_destroy: proc(),
 	cnv_frame_begin: proc(),
 	cnv_frame_end: proc(),
 }
@@ -110,6 +113,7 @@ load :: proc() {
 	_core.phase = .Loaded
 
 	if _core.hooks.ren_init != nil { _core.hooks.ren_init() }
+	if _core.hooks.cnv_init != nil { _core.hooks.cnv_init() }
 
 	if hooks.on_load != nil { hooks.on_load() }
 }
@@ -124,7 +128,6 @@ frame_begin :: proc() {
 
 	if first_frame {
 		clock_reset(&clock)
-		
 		if hooks.on_ready != nil { hooks.on_ready() }
 	} else {
 		clock_tick(&clock)
@@ -221,6 +224,11 @@ frame_begin :: proc() {
 frame_end :: proc() {
 	if _core.phase != .Frame_Began { panic("frame_end() called out of order") }
 
+	if hooks.on_draw != nil { hooks.on_draw() }
+
+	if _core.hooks.cnv_frame_end != nil { _core.hooks.cnv_frame_end() }
+	if _core.hooks.ren_frame_end != nil { _core.hooks.ren_frame_end() }
+
 	if clock.frame_target_time > 0 {
 		total_frame_time := time.diff(clock.now, time.now())
 		if total_frame_time < clock.frame_target_time {
@@ -228,14 +236,21 @@ frame_end :: proc() {
 		}
 	}
 
-	if _core.hooks.cnv_frame_end != nil { _core.hooks.cnv_frame_end() }
-	if _core.hooks.ren_frame_end != nil { _core.hooks.ren_frame_end() }
-
 	_core.phase = .Frame_Ended
+}
+
+// Runs the app until it receives a quit signal. Can be used if you don't want
+// to write your own loop.
+run :: proc() {
+	for !should_quit {
+		frame_begin()
+		frame_end()
+	}
 }
 
 // Call at program exit.
 exit :: proc() {
+	if _core.hooks.cnv_destroy != nil { _core.hooks.cnv_destroy() }
 	if _core.hooks.ren_destroy != nil { _core.hooks.ren_destroy() }
 	window_destroy(&window)
 	sdl.Quit()

@@ -4,15 +4,19 @@ import "core:c"
 import "wgpu"
 
 PASS_MAX_BUFFERS :: 8
+PASS_MAX_BIND_GROUPS :: MAX_BIND_GROUPS
 
 Pass :: struct {
 	_buffers: [PASS_MAX_BUFFERS]wgpu.Buffer,
-	_bind_groups: [MAX_BIND_GROUPS]wgpu.BindGroup,
+	_bind_groups: [PASS_MAX_BIND_GROUPS]wgpu.BindGroup,
 	_active_pipeline: wgpu.RenderPipeline,
 	_wgpu_handle: wgpu.RenderPassEncoder,
 }
 
-pass_begin :: proc(target: Maybe(Texture) = nil) -> Pass {
+pass_begin :: proc(
+	target: Maybe(Texture) = nil,
+	clear_color: [4]f32 = {0.0, 0.0, 0.0, 1.0},
+) -> Pass {
 	return Pass{
 		_wgpu_handle = wgpu.CommandEncoderBeginRenderPass(
 			_core.cmd_encoder,
@@ -22,7 +26,12 @@ pass_begin :: proc(target: Maybe(Texture) = nil) -> Pass {
 					view = target == nil ? _core.swap_tex_view : target.(Texture)._wgpu_view,
 					loadOp = .Clear,
 					storeOp = .Store,
-					clearValue = wgpu.Color{0.0, 0.0, 0.0, 1.0},
+					clearValue = wgpu.Color{
+						c.double(clear_color.r),
+						c.double(clear_color.g),
+						c.double(clear_color.b),
+						c.double(clear_color.a),
+					},
 				},
 			},
 		)
@@ -61,12 +70,21 @@ pass_set_buffers :: #force_inline proc(pass: ^Pass, buffers: ..Buffer) {
 	}
 }
 
-pass_set_bind_uniform :: proc(pass: ^Pass, index: uint, uniform: Buffer) {
-	assert(uniform.usage == .Uniform)
-	unimplemented()
+pass_set_binding_uniform :: proc(pass: ^Pass, index: uint, uniform: Buffer) {
+	assert(uniform.usage == .Uniform && index < PASS_MAX_BIND_GROUPS)
+	if pass._bind_groups[index] != uniform._wgpu_ubind {
+		pass._bind_groups[index] = uniform._wgpu_ubind
+		wgpu.RenderPassEncoderSetBindGroup(
+			pass._wgpu_handle,
+			c.uint32_t(index),
+			uniform._wgpu_ubind,
+			0,
+			nil,
+		)
+	}
 }
 
-pass_set_bind_texture :: proc(pass: ^Pass, index: uint, texture: Texture) {
+pass_set_binding_texture :: proc(pass: ^Pass, index: uint, texture: Texture) {
 	// TODO: check against already bound, WGPU doesn't seem to do it internally
 	wgpu.RenderPassEncoderSetBindGroup(
 		pass._wgpu_handle,
