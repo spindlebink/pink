@@ -18,11 +18,12 @@ _core: Core
 
 @(private)
 Core :: struct {
-	trans: [2]f32, // TODO: matrix instead applied during draw commands
-	color: pk.Color,
 	frame_began: bool,
 
 	cmds: [dynamic]Command_Invoc,
+	state: State,
+	state_stack: [STATE_STACK_SIZE]State_Memo,
+	state_head: int,
 
 	pass: render.Pass,
 	vbuf: render.Buffer,
@@ -41,7 +42,7 @@ Core :: struct {
 init :: proc() {
 	// render.shader_init_wgsl(&_core.image_shader, #load("image_shader.wgsl"))
 	
-	_core.color = pk.Color{1.0, 1.0, 1.0, 1.0}
+	_core.state = EMPTY_STATE
 
 	vert_attrs := VERT_ATTRS
 	draw_inst_attrs := DRAW_INST_ATTRS

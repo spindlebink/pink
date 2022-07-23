@@ -17,6 +17,7 @@ Vertex :: struct {
 Context :: struct {}
 
 on_draw :: proc() {
+	canvas.set_color(pink.PINK_PINK)
 	canvas.draw_rect(pink.Transform{
 		rect = {0, 0, 100, 100}
 	})

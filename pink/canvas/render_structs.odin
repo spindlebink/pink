@@ -55,8 +55,8 @@ IMAGE_INST_ATTRS :: [?]render.Attr{
 draw_inst_from_trans :: #force_inline proc(transform: pk.Transform) ->  Draw_Inst {
 	return Draw_Inst{
 		trans = {
-			_core.trans.x + transform.x + transform.w * 0.5,
-			-_core.trans.y - transform.y - transform.h * 0.5,
+			_core.state.translation.x + transform.x + transform.w * 0.5,
+			-_core.state.translation.y - transform.y - transform.h * 0.5,
 		},
 		scale = {transform.w * 0.5, transform.h * 0.5},
 		rot = transform.rotation,
@@ -64,6 +64,6 @@ draw_inst_from_trans :: #force_inline proc(transform: pk.Transform) ->  Draw_Ins
 			-transform.origin.x * 2.0 + 1.0,
 			-transform.origin.y * 2.0 + 1.0,
 		},
-		color = ([4]f32)(_core.color),
+		color = ([4]f32)(_core.state.color),
 	}
 }
