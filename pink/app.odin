@@ -1,4 +1,4 @@
-package pk_app
+package pink
 
 import "core:fmt"
 import "core:strings"
@@ -26,7 +26,7 @@ mouse_rel_pos: [2]f32
 should_quit: bool
 hooks: Hooks
 
-// Configuration options for an app.
+// Configuration options for an pk.
 Config :: struct {
 	window_title: string,
 	window_width: uint,

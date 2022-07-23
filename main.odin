@@ -6,7 +6,6 @@ import "core:image"
 import "core:image/png"
 import "core:time"
 import "pink"
-import "pink/app"
 import "pink/canvas"
 
 ctx: Context
@@ -35,13 +34,13 @@ main :: proc() {
 		}
 	}
 
-	app.hooks.on_draw = on_draw
+	pink.hooks.on_draw = on_draw
 	
-	conf := app.DEFAULT_CONFIG
+	conf := pink.DEFAULT_CONFIG
 	conf.framerate_cap = 60.0
 	
-	app.conf(conf)
-	app.load()
-	app.run()
-	app.exit()
+	pink.conf(conf)
+	pink.load()
+	pink.run()
+	pink.exit()
 }

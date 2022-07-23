@@ -1,4 +1,4 @@
-package pk_app
+package pink
 
 import sdl "vendor:sdl2"
 

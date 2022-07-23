@@ -4,14 +4,14 @@ import "core:c"
 import "core:fmt"
 import sdl "vendor:sdl2"
 import "wgpu"
-import "../app"
+import pk ".."
 
 @(init, private)
 _module_init :: proc() {
-	app._core.hooks.ren_init = init
-	app._core.hooks.ren_destroy = destroy
-	app._core.hooks.ren_frame_begin = frame_begin
-	app._core.hooks.ren_frame_end = frame_end
+	pk._core.hooks.ren_init = init
+	pk._core.hooks.ren_destroy = destroy
+	pk._core.hooks.ren_frame_begin = frame_begin
+	pk._core.hooks.ren_frame_end = frame_end
 }
 
 MAX_BIND_GROUPS :: #config(PK_RENDER_MAX_BIND_GROUPS, 4)
@@ -111,7 +111,7 @@ init :: proc() {
 		wm_info: sdl.SysWMinfo
 		sdl.GetVersion(&wm_info.version)
 
-		if !sdl.GetWindowWMInfo(app.window._sdl_handle, &wm_info) {
+		if !sdl.GetWindowWMInfo(pk.window._sdl_handle, &wm_info) {
 			panic("could not obtain WM info from window")
 		}
 
@@ -268,9 +268,9 @@ destroy :: proc() {
 frame_begin :: proc() {
 	if _core.frame_began { return }
 
-	if _core.swap_chain_expired || _core.width != app.window.width || _core.height != app.window.height {
-		_core.width = app.window.width
-		_core.height = app.window.height
+	if _core.swap_chain_expired || _core.width != pk.window.width || _core.height != pk.window.height {
+		_core.width = pk.window.width
+		_core.height = pk.window.height
 		swap_chain_rebuild()
 	}
 	

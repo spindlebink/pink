@@ -3,15 +3,14 @@ package pk_canvas
 import "core:fmt"
 import "core:math/linalg"
 import pk ".."
-import "../app"
 import "../render"
 
 @(init, private)
 _module_init :: proc() {
-	app._core.hooks.cnv_init = init
-	app._core.hooks.cnv_destroy = destroy
-	app._core.hooks.cnv_frame_begin = frame_begin
-	app._core.hooks.cnv_frame_end = frame_end
+	pk._core.hooks.cnv_init = init
+	pk._core.hooks.cnv_destroy = destroy
+	pk._core.hooks.cnv_frame_begin = frame_begin
+	pk._core.hooks.cnv_frame_end = frame_end
 }
 
 // Internal state. Shouldn't generally be accessed user-side.
@@ -127,8 +126,8 @@ flush :: proc() {
 	
 	// Write global canvas uniform
 	
-	w_s := 2.0 / f32(app.window.width)
-	h_s := 2.0 / f32(app.window.height)
+	w_s := 2.0 / f32(pk.window.width)
+	h_s := 2.0 / f32(pk.window.height)
 	win := linalg.Matrix4x4f32{
 		w_s, 0.0, 0.0, 0.0,
 		0.0, h_s, 0.0, 0.0,
