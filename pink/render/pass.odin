@@ -32,7 +32,7 @@ pass_end :: proc(pass: Pass) {
 	wgpu.RenderPassEncoderEnd(pass._wgpu_handle)
 }
 
-pass_apply_pipeline :: proc(pass: ^Pass, pipeline: Pipeline) {
+pass_set_pipeline :: proc(pass: ^Pass, pipeline: Pipeline) {
 	if pass._active_pipeline != pipeline._wgpu_handle {
 		pass._active_pipeline = pipeline._wgpu_handle
 		wgpu.RenderPassEncoderSetPipeline(pass._wgpu_handle, pipeline._wgpu_handle)
@@ -58,4 +58,20 @@ pass_set_buffers :: #force_inline proc(pass: ^Pass, buffers: ..Buffer) {
 	for buffer, i in buffers {
 		pass_set_buffer(pass, uint(i), buffer)
 	}
+}
+
+pass_draw :: proc(
+	pass: ^Pass,
+	vert_start: uint = 0,
+	verts: uint = 3,
+	inst_start: uint = 0,
+	insts: uint = 1,
+) {
+	wgpu.RenderPassEncoderDraw(
+		pass._wgpu_handle,
+		c.uint32_t(verts),
+		c.uint32_t(insts),
+		c.uint32_t(vert_start),
+		c.uint32_t(inst_start),
+	)
 }

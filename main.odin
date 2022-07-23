@@ -53,8 +53,8 @@ main :: proc() {
 	
 	vertices := []Vertex{
 		Vertex{{0.0, 0.0}, {1.0, 0.0, 0.0}},
-		Vertex{{1.0, 0.0}, {0.0, 1.0, 0.0}},
-		Vertex{{0.0, 1.0}, {0.0, 0.0, 1.0}},
+		Vertex{{0.5, 0.0}, {0.0, 1.0, 0.0}},
+		Vertex{{0.0, 0.5}, {0.0, 0.0, 1.0}},
 	}
 	render.buffer_copy(&buf, vertices)
 	
@@ -62,6 +62,8 @@ main :: proc() {
 		app.frame_begin()
 		pass := render.pass_begin()
 		render.pass_set_buffers(&pass, buf)
+		render.pass_set_pipeline(&pass, pipe)
+		render.pass_draw(&pass)
 		render.pass_end(pass)
 		app.frame_end()
 	}

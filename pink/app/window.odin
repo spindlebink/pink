@@ -25,6 +25,7 @@ window_init :: proc(
 		window._sdl_flags += {.VULKAN}
 	}
 	
+	window._sdl_flags += {.RESIZABLE}
 	window._sdl_handle = sdl.CreateWindow(
 		cast(cstring) raw_data(window.title),
 		sdl.WINDOWPOS_UNDEFINED,

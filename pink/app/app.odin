@@ -20,6 +20,8 @@ window: Window
 clock: Clock
 key_state: Keys
 key_mod_state: Key_Mods
+mouse_pos: [2]f32
+mouse_rel_pos: [2]f32
 should_quit: bool
 hooks: Hooks
 
@@ -136,6 +138,67 @@ frame_begin :: proc() {
 		
 		case .QUIT:
 			should_quit = true
+		
+		case .WINDOWEVENT:
+			#partial switch event.window.event {
+			case .SIZE_CHANGED, .MINIMIZED, .RESTORED, .MAXIMIZED:
+				window_fetch_info(&window)
+
+			}
+
+		case .MOUSEBUTTONDOWN:
+			if hooks.on_mouse_button_down != nil {
+				hooks.on_mouse_button_down(
+					int(event.button.x),
+					int(event.button.y),
+					mouse_button_from_sdl(event.button.button),
+				)
+			}
+
+		case .MOUSEBUTTONUP:
+			if hooks.on_mouse_button_up != nil {
+				hooks.on_mouse_button_up(
+					int(event.button.x),
+					int(event.button.y),
+					mouse_button_from_sdl(event.button.button),
+				)
+			}
+		
+		case .MOUSEWHEEL:
+			if hooks.on_mouse_wheel != nil {
+				hooks.on_mouse_wheel(
+					f32(event.wheel.x),
+					f32(event.wheel.y),
+				)
+
+				// Eventually:
+				// event.wheel.preciseX,
+				// event.wheel.preciseY,
+			}
+		
+		case .KEYDOWN:
+			key := event.key.keysym
+			if pk_key, found := sdl_key_lookups[key.scancode]; found {
+				if hooks.on_key_down != nil {
+					hooks.on_key_down(pk_key)
+				}
+			}
+			
+		case .KEYUP:
+			key := event.key.keysym
+			if pk_key, found := sdl_key_lookups[key.scancode]; found {
+				if hooks.on_key_up != nil {
+					hooks.on_key_up(pk_key)
+				}
+			}
+		
+		case .MOUSEMOTION:
+			me := event.motion
+			mouse_pos.x, mouse_pos.y = f32(me.x), f32(me.y)
+			mouse_rel_pos.x, mouse_rel_pos.y = f32(me.xrel), f32(me.yrel)
+			if hooks.on_mouse_move != nil {
+				hooks.on_mouse_move(mouse_pos.x, mouse_pos.y)
+			}
 		
 		}
 	}
