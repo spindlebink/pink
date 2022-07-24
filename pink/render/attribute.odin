@@ -15,6 +15,8 @@ Attr_Type :: enum {
 	F32x2,
 	F32x3,
 	F32x4,
+	U16x2,
+	U16x4,
 	U32,
 	U32x2,
 	U32x3,
@@ -42,6 +44,11 @@ wgpu_format_from_attr :: #force_inline proc(attr: Attr) -> wgpu.VertexFormat {
 		return .Float32x3
 	case .F32x4:
 		return .Float32x4
+	
+	case .U16x2:
+		return .Uint16x2
+	case .U16x4:
+		return .Uint16x4
 	
 	case .U32:
 		return .Uint32

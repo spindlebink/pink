@@ -19,6 +19,11 @@ Draw_Inst :: struct {
 	color: [4]f32,
 }
 
+Image_Vertex :: struct {
+	pos: [2]f32,
+	uv_indices: [2]u32,
+}
+
 // Basic instance type + UV info
 Image_Inst :: struct {
 	using inst: Draw_Inst,
@@ -40,6 +45,11 @@ DRAW_INST_ATTRS :: [?]render.Attr{
 	{type = .F32, offset = offset_of(Draw_Inst, rot)},
 	{type = .F32x2, offset = offset_of(Draw_Inst, origin)},
 	{type = .F32x4, offset = offset_of(Draw_Inst, color)},
+}
+
+IMAGE_VERT_ATTRS :: [?]render.Attr{
+	{type = .F32x2, offset = offset_of(Image_Vertex, pos)},
+	{type = .U32x2, offset = offset_of(Image_Vertex, uv_indices)},
 }
 
 IMAGE_INST_ATTRS :: [?]render.Attr{

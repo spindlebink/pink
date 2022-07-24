@@ -2,6 +2,7 @@
 package pk_canvas
 
 import "core:reflect"
+import "../image"
 
 Command :: union {
 	Draw_Solid_Command,
@@ -15,7 +16,7 @@ Draw_Solid_Command :: struct {
 }
 
 Draw_Image_Command :: struct {
-	
+	image: image.Image,
 }
 
 Command_Invoc :: struct {
@@ -32,7 +33,7 @@ append_cmd :: proc(cmds: ^[dynamic]Command_Invoc, cmd: Command) {
 		top := &cmds[len(cmds) - 1]
 		top_type := reflect.union_variant_typeid(top.cmd)
 		cmd_type := reflect.union_variant_typeid(cmd)
-		if top_type != cmd_type {
+		if top_type == cmd_type {
 			switch in cmd {
 				
 			case Draw_Solid_Command:
@@ -42,7 +43,10 @@ append_cmd :: proc(cmds: ^[dynamic]Command_Invoc, cmd: Command) {
 				}
 				
 			case Draw_Image_Command:
-				// TODO
+				if cmd.(Draw_Image_Command).image._hash == top.cmd.(Draw_Image_Command).image._hash {
+					top.times += 1
+					return
+				}
 			
 			}
 		}

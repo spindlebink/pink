@@ -5,7 +5,6 @@ import "wgpu"
 
 Texture :: struct {
 	width, height: uint,
-	options: Texture_Options,
 
 	_bytes_per_pixel: uint,
 	_wgpu_texture: wgpu.Texture,

@@ -1,6 +1,7 @@
 package pk_render
 
 import "core:c"
+import "core:fmt"
 import "wgpu"
 
 BUFFER_INITIAL_SIZE :: 128
@@ -27,6 +28,8 @@ Buffer_Layout :: struct {
 }
 
 buffer_init :: proc(buffer: ^Buffer, size: uint = BUFFER_INITIAL_SIZE) {
+	if buffer.usage == .Index { unimplemented("index buffer support unimplemented") }
+
 	buffer.size = size
 	buffer._wgpu_handle = wgpu.DeviceCreateBuffer(
 		_core.device,
