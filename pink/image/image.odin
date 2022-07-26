@@ -10,7 +10,6 @@ CHANNEL_COUNT_RGBA :: 4
 
 Image :: struct {
 	using texture: render.Texture,
-	_hash: u32,
 }
 
 Address_Mode :: render.Texture_Address_Mode
@@ -32,8 +31,7 @@ load_from_bytes :: proc(data: []byte, options := Options{}) -> Image {
 		texture = render.Texture{
 			width = uint(loaded.width),
 			height = uint(loaded.height),
-		},
-		_hash = hash.murmur32(loaded.pixels.buf[:]),
+		}
 	}
 
 	render.texture_init(&img.texture, render.Texture_Options{
@@ -47,4 +45,8 @@ load_from_bytes :: proc(data: []byte, options := Options{}) -> Image {
 	render.texture_write(&img.texture, loaded.pixels.buf[:])
 
 	return img
+}
+
+destroy :: proc(img: Image) {
+	render.texture_destroy(img.texture)
 }

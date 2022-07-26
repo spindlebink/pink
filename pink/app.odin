@@ -250,6 +250,7 @@ run :: proc() {
 
 // Call at program exit.
 exit :: proc() {
+	if hooks.on_exit != nil { hooks.on_exit() }
 	if _core.hooks.cnv_destroy != nil { _core.hooks.cnv_destroy() }
 	if _core.hooks.ren_destroy != nil { _core.hooks.ren_destroy() }
 	window_destroy(&window)

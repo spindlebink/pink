@@ -2,6 +2,7 @@
 package pk_canvas
 
 import "core:reflect"
+import "../render"
 import "../image"
 
 Command :: union {
@@ -16,7 +17,7 @@ Draw_Solid_Command :: struct {
 }
 
 Draw_Image_Command :: struct {
-	image: image.Image,
+	texture: render.Texture,
 }
 
 Command_Invoc :: struct {
@@ -43,7 +44,7 @@ append_cmd :: proc(cmds: ^[dynamic]Command_Invoc, cmd: Command) {
 				}
 				
 			case Draw_Image_Command:
-				if cmd.(Draw_Image_Command).image._hash == top.cmd.(Draw_Image_Command).image._hash {
+				if cmd.(Draw_Image_Command).texture._wgpu_texture == top.cmd.(Draw_Image_Command).texture._wgpu_texture {
 					top.times += 1
 					return
 				}

@@ -15,6 +15,8 @@ _module_init :: proc() {
 }
 
 MAX_BIND_GROUPS :: #config(PK_RENDER_MAX_BIND_GROUPS, 4)
+USE_PUSH_CONSTANTS :: #config(PK_RENDER_USE_PUSH_CONSTANTS, false)
+MAX_PUSH_CONSTANT_SIZE :: #config(PK_RENDER_MAX_PUSH_CONSTANT_SIZE, size_of(uint) * 4)
 
 texture_bind_group_layout: wgpu.BindGroupLayout
 uniform_bind_group_layout: wgpu.BindGroupLayout
@@ -151,6 +153,20 @@ init :: proc() {
 		wgpu.DeviceDrop(_core.device)
 	}
 
+	native_features := wgpu.NativeFeature{}
+	limits_extras := wgpu.RequiredLimitsExtras{}
+
+	when USE_PUSH_CONSTANTS {
+		native_features = .PUSH_CONSTANTS
+		limits_extras = {
+			chain = wgpu.ChainedStruct{
+				next = nil,
+				sType = wgpu.SType(wgpu.NativeSType.RequiredLimitsExtras),
+			},
+			maxPushConstantSize = c.uint32_t(MAX_PUSH_CONSTANT_SIZE),
+		}
+	}
+
 	wgpu.AdapterRequestDevice(
 		_core.adapter,
 		&wgpu.DeviceDescriptor{
@@ -159,19 +175,13 @@ init :: proc() {
 					next = nil,
 					sType = wgpu.SType(wgpu.NativeSType.DeviceExtras),
 				},
-				// nativeFeatures = .PUSH_CONSTANTS,
+				nativeFeatures = native_features,
 			},
 			requiredLimits = &wgpu.RequiredLimits{
 				limits = wgpu.Limits{
 					maxBindGroups = c.uint32_t(MAX_BIND_GROUPS),
 				},
-				// nextInChain = cast(^wgpu.ChainedStruct)&wgpu.RequiredLimitsExtras{
-				// 	chain = wgpu.ChainedStruct{
-				// 		next = nil,
-				// 		sType = wgpu.SType(wgpu.NativeSType.RequiredLimitsExtras),
-				// 	},
-				// 	maxPushConstantSize = c.uint32_t(MAX_PUSH_CONSTANT_SIZE),
-				// }
+				nextInChain = cast(^wgpu.ChainedStruct)&limits_extras,
 			},
 			defaultQueue = wgpu.QueueDescriptor{},
 		},
@@ -186,9 +196,9 @@ init :: proc() {
 	wgpu.DeviceSetDeviceLostCallback(_core.device, on_device_lost, nil)
 
 	pref := wgpu.SurfaceGetPreferredFormat(_core.surface, _core.adapter)
-	if pref == .BGRA8Unorm {
+	if pref == .BGRA8Unorm || pref == .BGRA8UnormSrgb {
 		_core.ren_tex_format = .BGRA8UnormSrgb
-	} else if pref == .RGBA8Unorm {
+	} else if pref == .RGBA8Unorm || pref == .RGBA8UnormSrgb {
 		_core.ren_tex_format = .RGBA8UnormSrgb
 	} else {
 		panic("unknown GPU error: noncompliant with WebGPU spec")

@@ -6,6 +6,7 @@ import "wgpu"
 Texture :: struct {
 	width, height: uint,
 
+	_fmt: Texture_Format,
 	_bytes_per_pixel: uint,
 	_wgpu_texture: wgpu.Texture,
 	_wgpu_view: wgpu.TextureView,
@@ -43,6 +44,7 @@ Texture_Filter :: enum {
 }
 
 texture_init :: proc(texture: ^Texture, options := Texture_Options{}) {
+	texture._fmt = options.format
 	texture._bytes_per_pixel = options.format == .RGBA ? 4 : 1
 	texture._wgpu_texture = wgpu.DeviceCreateTexture(
 		_core.device,

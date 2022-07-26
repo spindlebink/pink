@@ -46,7 +46,8 @@ Core :: struct {
  */
 
 init :: proc() {
-	// render.shader_init_wgsl(&_core.image_shader, #load("image_shader.wgsl"))
+	// fmt.println("draw instances are", size_of(Draw_Inst), "bytes")
+	// fmt.println("image instances are", size_of(Image_Inst), "bytes")
 	
 	_core.state = EMPTY_STATE
 
@@ -84,6 +85,11 @@ init :: proc() {
 		}
 	)
 	
+	push_constants: []render.Push_Constant
+	when render.USE_PUSH_CONSTANTS {
+		push_constants = {{.Fragment, size_of(Image_Pipeline_Push_Constants)}}
+	}
+	
 	render.buffer_init(&_core.image_vbuf)
 	render.buffer_init(&_core.image_ibuf)
 	render.shader_init_wgsl(&_core.image_shader, #load("image_shader.wgsl"), shader_header)
@@ -103,9 +109,12 @@ init :: proc() {
 			},
 		},
 		[]render.Binding{
-			{.Uniform},          // canvas global uniform
-			{.Texture_Sampler},  // texture+sampler
-		}
+			{.Uniform},         // canvas global uniform
+			{.Texture_Sampler}, // texture+sampler
+		},
+		push_constants, // TODO: push constants seem to have regressed WGPU-side,
+		                // but it'd be nice to use them for things like RGBA/grayscale
+		                // flags instead of putting it in instance data
 	)
 	
 	render.buffer_copy(&_core.solid_vbuf, []Vertex{
@@ -203,6 +212,8 @@ flush :: proc() {
 
 	current_solid := uint(0)
 	current_image := uint(0)
+
+	in_rgba_mode := true
 	
 	for cmd, i in _core.cmds {
 		switch in cmd.cmd {
@@ -219,9 +230,24 @@ flush :: proc() {
 			current_solid += cmd.times
 		
 		case Draw_Image_Command:
+			tex := cmd.cmd.(Draw_Image_Command).texture
+
 			render.pass_set_pipeline(&_core.pass, _core.image_pipeline)
 			render.pass_set_buffers(&_core.pass, _core.image_vbuf, _core.image_ibuf)
-			render.pass_set_binding_texture(&_core.pass, 1, cmd.cmd.(Draw_Image_Command).image.texture)
+			render.pass_set_binding_texture(&_core.pass, 1, tex)
+
+			// if tex._fmt == .Gray && in_rgba_mode {
+			// 	render.pass_set_push_constants(&_core.pass, Image_Pipeline_Push_Constants{
+			// 		rgba_convert = true,
+			// 	})
+			// 	in_rgba_mode = false
+			// } else if tex._fmt == .RGBA && !in_rgba_mode {
+			// 	render.pass_set_push_constants(&_core.pass, Image_Pipeline_Push_Constants{
+			// 		rgba_convert = false,
+			// 	})
+			// 	in_rgba_mode = true
+			// }
+
 			render.pass_draw(&_core.pass, 0, 6, current_image, cmd.times)
 			
 			current_image += cmd.times

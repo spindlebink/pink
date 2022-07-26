@@ -10,12 +10,14 @@ struct Inst {
     @location(5) origin: vec2<f32>,
     @location(6) color: vec4<f32>,
     @location(7) uv: vec4<f32>,
+    @location(8) texture_flags: u32,
 };
 
 struct VertexOut {
     @builtin(position) pos: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: vec2<f32>,
+    @location(2) flags: u32,
 };
 
 @group(1) @binding(0) var image_texture: texture_2d<f32>;
@@ -39,11 +41,15 @@ fn vertex(vertex: Vertex, inst: Inst, @builtin(vertex_index) index: u32) -> Vert
         inst.uv[vertex.uv_indices.x],
         inst.uv[vertex.uv_indices.y],
     );
+
+    out.flags = inst.texture_flags;
     
     return out;
 }
 
 @fragment
 fn fragment(in: VertexOut) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color * textureSample(image_texture, image_sampler, in.uv));
+    let s: vec4<f32> = textureSample(image_texture, image_sampler, in.uv);
+    // right now there's only one flag--for RGBA conversion--so just check 0
+    return vec4<f32>(in.color * select(s.rrrr, s.rgba, in.flags == 0u));
 }

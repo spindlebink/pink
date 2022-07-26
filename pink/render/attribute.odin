@@ -15,6 +15,8 @@ Attr_Type :: enum {
 	F32x2,
 	F32x3,
 	F32x4,
+	U8x2,
+	U8x4,
 	U16x2,
 	U16x4,
 	U32,
@@ -32,6 +34,25 @@ Attr :: struct {
 	offset: uintptr,
 }
 
+Push_Constant :: struct {
+	stages: enum {
+		All,
+		Vertex,
+		Fragment,
+	},
+	size: uint,
+}
+
+@(private)
+wgpu_pcr_from_pcr :: #force_inline proc(range: Push_Constant) -> wgpu.PushConstantRange {
+	return {
+		stages =
+			range.stages == .All ? {.Vertex, .Fragment} : range.stages == .Vertex ? {.Vertex} : {.Fragment},
+		start = 0,
+		end = c.uint32_t(range.size),
+	}
+}
+
 @(private)
 wgpu_format_from_attr :: #force_inline proc(attr: Attr) -> wgpu.VertexFormat {
 	switch attr.type {
@@ -44,6 +65,11 @@ wgpu_format_from_attr :: #force_inline proc(attr: Attr) -> wgpu.VertexFormat {
 		return .Float32x3
 	case .F32x4:
 		return .Float32x4
+	
+	case .U8x2:
+		return .Uint8x2
+	case .U8x4:
+		return .Uint8x4
 	
 	case .U16x2:
 		return .Uint16x2

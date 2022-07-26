@@ -24,10 +24,21 @@ Image_Vertex :: struct {
 	uv_indices: [2]u32,
 }
 
+Image_Inst_Flags :: bit_set[enum {RGBA_Convert}; u32]
+
 // Basic instance type + UV info
 Image_Inst :: struct {
 	using inst: Draw_Inst,
 	uv: [4]f32,
+	texture_flags: Image_Inst_Flags,
+}
+
+when render.USE_PUSH_CONSTANTS {
+
+Image_Pipeline_Push_Constants :: struct {
+	rgba_convert: bool,
+}
+
 }
 
 // Global shader data uniform
@@ -58,7 +69,8 @@ IMAGE_INST_ATTRS :: [?]render.Attr{
 	{type = .F32, offset = offset_of(Image_Inst, rot)},
 	{type = .F32x2, offset = offset_of(Image_Inst, origin)},
 	{type = .F32x4, offset = offset_of(Image_Inst, color)},
-	{type = .F32x4, offset = offset_of(Image_Inst, uv)}
+	{type = .F32x4, offset = offset_of(Image_Inst, uv)},
+	{type = .U32, offset = offset_of(Image_Inst, texture_flags)},
 }
 
 @(private)

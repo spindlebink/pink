@@ -1,23 +1,29 @@
 package pk_canvas
 
+import "../render"
 import "../image"
 import pk ".."
+
+Drawable :: struct {
+	draw_data: rawptr,
+	draw: proc(rawptr, pk.Transform),
+}
 
 draw_rect :: proc(transform: pk.Transform) {
 	append(&_core.solid_insts, draw_inst_from_trans(transform))
 	append_cmd(&_core.cmds, Draw_Solid_Command{.Rect})
 }
 
-draw_image :: proc(image: image.Image, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
+draw_image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
 	t := transform
 	s := quad
-	if s.w <= 0 { s.w = int(image.width) - s.x }
-	if s.h <= 0 { s.h = int(image.height) - s.y }
-	fw, fh := f32(image.width), f32(image.height)
+	if s.w <= 0 { s.w = int(img.width) - s.x }
+	if s.h <= 0 { s.h = int(img.height) - s.y }
+	fw, fh := f32(img.width), f32(img.height)
 	uv_x, uv_y := f32(s.x) / fw, f32(s.y) / fh
 	
-	if t.w <= 0 { t.w = f32(image.width) }
-	if t.h <= 0 { t.h = f32(image.height) }
+	if t.w <= 0 { t.w = f32(img.width) }
+	if t.h <= 0 { t.h = f32(img.height) }
 	
 	append(
 		&_core.image_insts,
@@ -29,7 +35,12 @@ draw_image :: proc(image: image.Image, transform: pk.Transform, quad := pk.Recti
 				uv_x + f32(s.w) / fw,
 				uv_y + f32(s.h) / fh,
 			},
+			texture_flags = img._fmt == .RGBA ? {} : {.RGBA_Convert},
 		},
 	)
-	append_cmd(&_core.cmds, Draw_Image_Command{image})
+	append_cmd(&_core.cmds, Draw_Image_Command{img})
+}
+
+draw :: proc(drawable: Drawable, transform: pk.Transform) {
+	drawable.draw(drawable.draw_data, transform)
 }

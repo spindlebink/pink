@@ -85,14 +85,31 @@ pass_set_binding_uniform :: proc(pass: ^Pass, index: uint, uniform: Buffer) {
 }
 
 pass_set_binding_texture :: proc(pass: ^Pass, index: uint, texture: Texture) {
-	// TODO: check against already bound, WGPU doesn't seem to do it internally
-	wgpu.RenderPassEncoderSetBindGroup(
+	if pass._bind_groups[index] != texture._wgpu_bind_group {
+		pass._bind_groups[index] = texture._wgpu_bind_group
+		wgpu.RenderPassEncoderSetBindGroup(
+			pass._wgpu_handle,
+			c.uint32_t(index),
+			texture._wgpu_bind_group,
+			0,
+			nil,
+		)
+	}
+}
+
+when USE_PUSH_CONSTANTS {
+
+pass_set_push_constants :: proc(pass: ^Pass, data: $D) {
+	d := data
+	wgpu.RenderPassEncoderSetPushConstants(
 		pass._wgpu_handle,
-		c.uint32_t(index),
-		texture._wgpu_bind_group,
+		{.Vertex, .Fragment},
 		0,
-		nil,
+		size_of(D),
+		&d,
 	)
+}
+
 }
 
 pass_draw :: proc(
