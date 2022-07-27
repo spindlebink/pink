@@ -1,4 +1,4 @@
-package pk_canvas
+package pk_im_draw
 
 import "../render"
 import "../image"
@@ -9,16 +9,16 @@ Drawable :: struct {
 	draw: proc(rawptr, pk.Transform),
 }
 
-im_draw :: proc(drawable: Drawable, transform := pk.Transform{}) {
+draw :: proc(drawable: Drawable, transform := pk.Transform{}) {
 	drawable.draw(drawable.draw_data, transform)
 }
 
-im_draw_rect :: proc(transform: pk.Transform) {
+rect :: proc(transform: pk.Transform) {
 	append(&_core.solid_insts, draw_inst_from_trans(transform))
 	append_cmd(&_core.cmds, Draw_Solid_Command{.Rect})
 }
 
-im_draw_image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
+image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
 	t := transform
 	s := quad
 	if s.w <= 0 { s.w = int(img.width) - s.x }

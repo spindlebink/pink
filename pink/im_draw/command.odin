@@ -1,5 +1,5 @@
 //+private
-package pk_canvas
+package pk_im_draw
 
 import "core:reflect"
 import "../render"
@@ -42,7 +42,7 @@ append_cmd :: proc(cmds: ^[dynamic]Command_Invoc, cmd: Command) {
 					top.times += 1
 					return
 				}
-				
+			
 			case Draw_Image_Command:
 				if cmd.(Draw_Image_Command).texture._wgpu_texture == top.cmd.(Draw_Image_Command).texture._wgpu_texture {
 					top.times += 1

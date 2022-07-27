@@ -1,5 +1,4 @@
-//+private
-package pk_canvas
+package pk_im_draw
 
 import "core:math/linalg"
 import pk ".."

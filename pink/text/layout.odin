@@ -3,10 +3,10 @@ package pk_text
 import "core:fmt"
 import "fontdue"
 import pk ".."
-import "../canvas"
+import "../im_draw"
 
 Layout :: struct {
-	using drawable: canvas.Drawable,
+	using drawable: im_draw.Drawable,
 	_draw_glyphset: ^Glyphset,
 	_ftd_layout: fontdue.Layout,
 	_glyphs: [dynamic]fontdue.GlyphPosition,
@@ -44,7 +44,7 @@ layout_draw :: proc(layout_ptr: rawptr, transform: pk.Transform) {
 		}
 
 		if gd, found := glyphset._glyph_map[gchar]; found {
-			canvas.im_draw_image(
+			im_draw.image(
 				glyphset._pages[gd.page_index],
 				pk.Transform{
 					rect = {

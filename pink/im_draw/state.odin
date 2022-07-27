@@ -1,18 +1,18 @@
-package pk_canvas
+package pk_im_draw
 
 import pk ".."
 
 STATE_STACK_SIZE :: 1024
 
 @(private)
-EMPTY_STATE :: IM_State{
+EMPTY_STATE :: State{
 	color = {1.0, 1.0, 1.0, 1.0},
 	translation = {0.0, 0.0},
 	rotation = 0.0,
 }
 
 // Canvas's current color and transform.
-IM_State :: struct {
+State :: struct {
 	color: pk.Color,
 	translation: [2]f32,
 	rotation: f32,
@@ -20,7 +20,7 @@ IM_State :: struct {
 
 @(private)
 State_Memo :: struct {
-	state: IM_State,
+	state: State,
 	type: enum {
 		All,
 		Transform,
