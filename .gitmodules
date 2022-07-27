@@ -4,3 +4,6 @@
 [submodule "pink/text/fontdue"]
 	path = pink/text/fontdue
 	url = https://codeberg.org/spindlebink/fontdue-odin
+[submodule "pink/fs/physfs"]
+	path = pink/fs/physfs
+	url = https://codeberg.org/spindlebink/physfs-odin
