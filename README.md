@@ -5,40 +5,25 @@
 
 A game framework in [the Odin programming language](https://odin-lang.org) modeled after [LÖVE](https://love2d.org).
 
-* [Codeberg repo](https://codeberg.org/spindlebink/pink)
-* [GitHub mirror](https://github.com/spindlebink/pink)
-
-**Pink is in early development and is missing a lot of basic features.** If you're wanting to make a game *now*, and you're hankering for the framework experience, I recommend:
-
-* [LÖVE if you're generally a fan of good things](https://love2d.org)
-* [Raylib if you're set on Odin](https://pkg.odin-lang.org/vendor/raylib/)--there are vendor bindings for it
-
-## Project Goals
-
-It's still early, but progress happens quickly. Pink is designed for:
-
-* **Cleanness and orthogonality**: each component should do a single thing and do it well.
-* **Control over convenience**: although Pink takes after LÖVE, our niche is lower-level, so our mechanics should reflect that.
+> **Pink is in early development and is missing a lot of basic features.** If you're wanting to make a game *now*, and you're hankering for the framework experience, I recommend:
+> * [LÖVE if you're generally a fan of good things](https://love2d.org)
+> * [Raylib if you're set on Odin](https://pkg.odin-lang.org/vendor/raylib/): there are vendor bindings for it
 
 ## Status
 
-**We're in the middle of an API redesign and reimplementation, so functionality has regressed.** The high-water mark for what's been supported incorporates:
+Pink is still early in development. It's not ready for use yet. Most features are missing, and it only runs on Linux at the moment. If you're intrepid enough, you're welcome to try it out:
 
-* A window context and runtime callbacks
-* An immediate-mode canvas renderer
-  * Rectangle primitives
-  * Images and slices of images
-  * Text
-* Typefaces and text layout
+```sh
+# Clone the repository
+git clone https://codeberg.org/spindlebink/pink
+cd pink && git submodule update --init
 
-Goals for an initial version are:
+# Download and build the libraries Pink depends on
+./prereqs_linux.sh
 
-* A renderer equipped to handle a decent subset of indie-budget 2D games
-  * An immediate-mode canvas API
-  * Shape primitives, images, and text as initial drawables
-  * A canvas state stack
-* A window context with callback-based input and lifetime handling
-* Documentation for the framework's user-facing API and for its internals
+# Run `main.odin`
+odin run .
+```
 
 ## Contributing
 
