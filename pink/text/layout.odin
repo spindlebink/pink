@@ -44,7 +44,7 @@ layout_draw :: proc(layout_ptr: rawptr, transform: pk.Transform) {
 		}
 
 		if gd, found := glyphset._glyph_map[gchar]; found {
-			canvas.draw_image(
+			canvas.im_draw_image(
 				glyphset._pages[gd.page_index],
 				pk.Transform{
 					rect = {

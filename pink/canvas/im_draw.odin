@@ -9,12 +9,16 @@ Drawable :: struct {
 	draw: proc(rawptr, pk.Transform),
 }
 
-draw_rect :: proc(transform: pk.Transform) {
+im_draw :: proc(drawable: Drawable, transform := pk.Transform{}) {
+	drawable.draw(drawable.draw_data, transform)
+}
+
+im_draw_rect :: proc(transform: pk.Transform) {
 	append(&_core.solid_insts, draw_inst_from_trans(transform))
 	append_cmd(&_core.cmds, Draw_Solid_Command{.Rect})
 }
 
-draw_image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
+im_draw_image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Recti{0, 0, 0, 0}) {
 	t := transform
 	s := quad
 	if s.w <= 0 { s.w = int(img.width) - s.x }
@@ -39,8 +43,4 @@ draw_image :: proc(img: render.Texture, transform: pk.Transform, quad := pk.Rect
 		},
 	)
 	append_cmd(&_core.cmds, Draw_Image_Command{img})
-}
-
-draw :: proc(drawable: Drawable, transform: pk.Transform) {
-	drawable.draw(drawable.draw_data, transform)
 }

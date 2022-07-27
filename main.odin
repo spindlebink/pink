@@ -86,7 +86,7 @@ on_draw :: proc() {
 	// Draw a staggered grid of `wut_img`
 	for x: f32 = 0; x < 8; x += 1 {
 		for y: f32 = 0; y < 8; y += 1 {
-			canvas.draw_image(
+			canvas.im_draw_image(
 				wut_img,
 				pink.Transform{
 					rect = {
@@ -101,7 +101,7 @@ on_draw :: proc() {
 	}
 
 	// And also draw our text layout
-	canvas.draw(layout, {rect = {0, 0, 0, 0}})
+	canvas.im_draw(layout, {rect = {0, 0, 0, 0}})
 }
 
 main :: proc() {

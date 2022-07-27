@@ -21,7 +21,7 @@ Core :: struct {
 	frame_began: bool,
 
 	cmds: [dynamic]Command_Invoc,
-	state: State,
+	state: IM_State,
 	state_stack: [STATE_STACK_SIZE]State_Memo,
 	state_head: int,
 
