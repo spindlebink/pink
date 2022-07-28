@@ -25,13 +25,16 @@ ctx: struct {
 on_load :: proc() {
 	using ctx
 	
-	wut_img = image.load_from_bytes(#load("resources/wut.png"), image.Options{
+	img_data := fs.bytes_load_all("resources/wut.png"); defer delete(img_data)
+	typeface_data := fs.bytes_load_all("resources/Dosis-Regular.ttf"); defer delete(typeface_data)
+	
+	wut_img = image.load_from_bytes(img_data, image.Options{
 		mag_filter = .Nearest,
 		min_filter = .Nearest,
 	})
 	
 	// Typefaces represent a font file. They serve little use outside of glyphsets.
-	typeface = text.typeface_load_from_bytes(#load("resources/Dosis-Regular.ttf"))
+	typeface = text.typeface_load_from_bytes(typeface_data)
 	
 	// We defined `ctx.glyphset` earlier, and it doesn't have an initialization
 	// function, so we can use it right away. Here we're rendering some common
@@ -121,6 +124,10 @@ main :: proc() {
 	// `pink.DEFAULT_CONFIG` and only touch the parameters you need to change.
 	conf := pink.DEFAULT_CONFIG
 	conf.framerate_cap = 60.0
+	conf.app_identity = {
+		org = "spindlebink",
+		name = "pink_dev",
+	}
 
 	pink.hooks.on_load = on_load
 	pink.hooks.on_draw = on_draw

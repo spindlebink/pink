@@ -33,6 +33,10 @@ Config :: struct {
 	window_height: uint,
 	fixed_framerate: f64,
 	framerate_cap: f64,
+	app_identity: struct {
+		org: string,
+		name: string,
+	},
 }
 
 // Program lifetime callbacks.
@@ -77,6 +81,8 @@ Core_Hooks :: struct {
 	cnv_destroy: proc(),
 	cnv_frame_begin: proc(),
 	cnv_frame_end: proc(),
+	fs_init: proc(string, string),
+	fs_destroy: proc(),
 }
 
 // Configures the app context.
@@ -97,6 +103,13 @@ conf :: proc(config := DEFAULT_CONFIG) {
 		clock.delta_ms_fixed = 1000.0 / config.fixed_framerate
 	} else {
 		clock.delta_ms_fixed = 0.0
+	}
+	
+	if _core.hooks.fs_init != nil {
+		if config.app_identity.org == "" || config.app_identity.name == "" {
+			panic("loaded filesystem library, but no app identity was passed to configuration")
+		}
+		_core.hooks.fs_init(config.app_identity.org, config.app_identity.name)
 	}
 
 	_core.phase = .Configured
@@ -251,6 +264,7 @@ run :: proc() {
 // Call at program exit.
 exit :: proc() {
 	if hooks.on_exit != nil { hooks.on_exit() }
+	if _core.hooks.fs_destroy != nil { _core.hooks.fs_destroy() }
 	if _core.hooks.cnv_destroy != nil { _core.hooks.cnv_destroy() }
 	if _core.hooks.ren_destroy != nil { _core.hooks.ren_destroy() }
 	window_destroy(&window)
