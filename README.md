@@ -27,13 +27,9 @@ odin run .
 
 ## Contributing
 
-Feel free! Fork and pull request. I'd most appreciate help with:
-
-* Cross-platform support. Odin makes this super easy, but the Windows side of my desktop isn't set up for development and I haven't had the heart to wrestle with the Windows dev experience right now.
+Feel free! Fork and pull request, and make sure you do so on the Codeberg side rather than the GitHub mirror. Note that Pink is currently a personal, largely educational project. I'd love for it to be useful to other people, but its suitability for any purposes but my own at the moment isn't something I can commit to.
 
 ## License
 
-BSD 3-clause. Under it, you can:
-* Modify the framework and redistribute it
-* Place a warranty on it
-* Use the framework in a closed-source project
+BSD 3-clause. For most purposes, it's identical to MIT, except that it adds the clause:
+* Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
